@@ -14,7 +14,7 @@ optim:
   base_ratio: 0.4               # ratio of learning rate for the base GNN encoder
 
 model:                          # notice that other 'model' variables are defined from the config of pretrained model
-  drop_ratio: 0.3               # dropout ratio
+  dropout: 0.3               # dropout ratio
   pool: mean                    # readout pooling (i.e., mean/max/add)
 
 dataset:
