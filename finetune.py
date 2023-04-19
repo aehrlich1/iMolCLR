@@ -325,12 +325,12 @@ def get_config():
 
     if config['task_name'] == 'BBBP':
         config['dataset']['task'] = 'classification'
-        config['dataset']['data_path'] = './data/bbbp/raw/BBBP.csv'
+        config['dataset']['data_path'] = './data/bbbp/BBBP.csv'
         target_list = ["p_np"]
 
     elif config['task_name'] == 'Tox21':
         config['dataset']['task'] = 'classification'
-        config['dataset']['data_path'] = './data/tox21/raw/tox21.csv'
+        config['dataset']['data_path'] = './data/tox21/tox21.csv'
         target_list = [
             "NR-AR", "NR-AR-LBD", "NR-AhR", "NR-Aromatase", "NR-ER", "NR-ER-LBD", 
             "NR-PPAR-gamma", "SR-ARE", "SR-ATAD5", "SR-HSE", "SR-MMP", "SR-p53"
@@ -338,22 +338,22 @@ def get_config():
 
     elif config['task_name'] == 'ClinTox':
         config['dataset']['task'] = 'classification'
-        config['dataset']['data_path'] = './data/clintox/raw/clintox.csv'
+        config['dataset']['data_path'] = './data/clintox/clintox.csv'
         target_list = ['CT_TOX', 'FDA_APPROVED']
 
     elif config['task_name'] == 'HIV':
         config['dataset']['task'] = 'classification'
-        config['dataset']['data_path'] = './data/hiv/raw/HIV.csv'
+        config['dataset']['data_path'] = './data/hiv/HIV.csv'
         target_list = ["HIV_active"]
 
     elif config['task_name'] == 'BACE':
         config['dataset']['task'] = 'classification'
-        config['dataset']['data_path'] = './data/bace/raw/bace.csv'
+        config['dataset']['data_path'] = './data/bace/bace.csv'
         target_list = ["Class"]
 
     elif config['task_name'] == 'SIDER':
         config['dataset']['task'] = 'classification'
-        config['dataset']['data_path'] = './data/sider/raw/sider.csv'
+        config['dataset']['data_path'] = './data/sider/sider.csv'
         target_list = [
             "Hepatobiliary disorders", "Metabolism and nutrition disorders", "Product issues", "Eye disorders", "Investigations", 
             "Musculoskeletal and connective tissue disorders", "Gastrointestinal disorders", "Social circumstances", 
@@ -369,7 +369,7 @@ def get_config():
     
     elif config['task_name'] == 'MUV':
         config['dataset']['task'] = 'classification'
-        config['dataset']['data_path'] = './data/muv/raw/muv.csv'
+        config['dataset']['data_path'] = './data/muv/muv.csv'
         target_list = [
             "MUV-466", "MUV-548", "MUV-600", "MUV-644", "MUV-652", "MUV-692", "MUV-712", "MUV-713", 
             "MUV-733", "MUV-737", "MUV-810", "MUV-832", "MUV-846", "MUV-852", "MUV-858", "MUV-859"
@@ -377,17 +377,17 @@ def get_config():
 
     elif config['task_name'] == 'FreeSolv':
         config['dataset']['task'] = 'regression'
-        config['dataset']['data_path'] = './data/freesolv/raw/SAMPL.csv'
+        config['dataset']['data_path'] = './data/freesolv/SAMPL.csv'
         target_list = ["expt"]
     
     elif config["task_name"] == 'ESOL':
         config['dataset']['task'] = 'regression'
-        config['dataset']['data_path'] = './data/esol/raw/delaney-processed.csv'
+        config['dataset']['data_path'] = './data/esol/delaney-processed.csv'
         target_list = ["measured log solubility in mols per litre"]
 
     elif config["task_name"] == 'Lipo':
         config['dataset']['task'] = 'regression'
-        config['dataset']['data_path'] = './data/lipophilicity/raw/Lipophilicity.csv'
+        config['dataset']['data_path'] = './data/lipophilicity/Lipophilicity.csv'
         target_list = ["exp"]
 
     elif config["task_name"] == 'qm7':
