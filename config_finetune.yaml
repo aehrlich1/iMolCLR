@@ -12,6 +12,7 @@ optim:
   lr: 0.0005                    # initial learning rate for the prediction head
   weight_decay: 0.000001        # weight decay of Adam
   base_ratio: 0.4               # ratio of learning rate for the base GNN encoder
+  type: Adam
 
 model:                          # notice that other 'model' variables are defined from the config of pretrained model
   dropout: 0.3               # dropout ratio

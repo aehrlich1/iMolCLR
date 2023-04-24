@@ -53,7 +53,7 @@ class GINEConv(MessagePassing):
 
 
 class GINet(nn.Module):
-    def __init__(self, task='classification', num_layer=5, embed_dim=256, dropout=0, pooling='mean'):
+    def __init__(self, task='classification', num_layer=5, embed_dim=256, dropout=0, pool='mean'):
         super(GINet, self).__init__()
         self.task = task
         self.num_layer = num_layer
@@ -76,11 +76,11 @@ class GINet(nn.Module):
         for layer in range(num_layer):
             self.batch_norms.append(nn.BatchNorm1d(embed_dim))
 
-        if pooling == 'mean':
+        if pool == 'mean':
             self.pool = global_mean_pool
-        elif pooling == 'max':
+        elif pool == 'max':
             self.pool = global_max_pool
-        elif pooling == 'add':
+        elif pool == 'add':
             self.pool = global_add_pool
         else:
             raise ValueError('Pooling operation not defined!')
