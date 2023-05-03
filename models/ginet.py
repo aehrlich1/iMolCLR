@@ -1,20 +1,9 @@
 import torch
-from torch import nn
 import torch.nn.functional as F
-from torch.nn import Linear, LayerNorm, ReLU
-
-from torch_scatter import scatter
+from torch import nn
 from torch_geometric.nn import MessagePassing
-from torch_geometric.utils import add_self_loops
 from torch_geometric.nn import global_add_pool, global_mean_pool, global_max_pool
-
-import rdkit
-from rdkit import Chem
-from rdkit.Chem.rdchem import HybridizationType as HT
-from rdkit.Chem.rdchem import BondType as BT
-from rdkit.Chem.rdchem import BondStereo
-from rdkit.Chem import AllChem
-
+from torch_geometric.utils import add_self_loops
 
 num_atom_type = 119 # including the extra mask tokens
 num_chirality_tag = 3

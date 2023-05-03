@@ -1,15 +1,14 @@
 import os
-import shutil
-import yaml
-import torch
-import pandas as pd
-import numpy as np
 from datetime import datetime
 
-from torch import nn
+import numpy as np
+import pandas as pd
+import torch
 import torch.nn.functional as F
+import yaml
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from sklearn.metrics import roc_auc_score
+from torch import nn
 
 from data_aug.dataset_test import MolTestDatasetWrapper
 from models.ginet_finetune import GINet

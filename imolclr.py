@@ -1,22 +1,19 @@
 import os
 import shutil
 import sys
-import yaml
-import time
-import signal
-import torch
-import numpy as np
 from datetime import datetime
 
+import numpy as np
+import torch
 import torch.nn.functional as F
-from torch.utils.tensorboard import SummaryWriter
+import yaml
 from torch.optim.lr_scheduler import CosineAnnealingLR
+from torch.utils.tensorboard import SummaryWriter
 
-from utils.nt_xent import NTXentLoss
-from utils.weighted_nt_xent import WeightedNTXentLoss
 from data_aug.dataset import MoleculeDatasetWrapper
 from models.ginet import GINet
-
+from utils.nt_xent import NTXentLoss
+from utils.weighted_nt_xent import WeightedNTXentLoss
 
 apex_support = False
 try:

@@ -1,24 +1,16 @@
-import os
 import csv
-import random
+import csv
+
 import numpy as np
-from copy import deepcopy
-
 import torch
-import torch.nn.functional as F
+from rdkit import Chem
+from rdkit import RDLogger
+from rdkit.Chem.Scaffolds.MurckoScaffold import MurckoScaffoldSmiles
+from rdkit.Chem.rdchem import BondType as BT
+from rdkit.Chem.rdchem import HybridizationType
 from torch.utils.data.sampler import SubsetRandomSampler
-import torchvision.transforms as transforms
-
-from torch_scatter import scatter
 from torch_geometric.data import Data, Dataset, DataLoader
 
-import rdkit
-from rdkit import Chem
-from rdkit.Chem.rdchem import HybridizationType
-from rdkit.Chem.rdchem import BondType as BT
-from rdkit.Chem import AllChem
-from rdkit.Chem.Scaffolds.MurckoScaffold import MurckoScaffoldSmiles
-from rdkit import RDLogger
 RDLogger.DisableLog('rdApp.*')
 
 

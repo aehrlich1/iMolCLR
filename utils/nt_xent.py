@@ -1,5 +1,5 @@
-import torch
 import numpy as np
+import torch
 
 
 class NTXentLoss(torch.nn.Module):

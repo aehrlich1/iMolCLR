@@ -1,8 +1,6 @@
-import torch
-from torch import nn
 import numpy as np
+import torch
 from rdkit import DataStructs, Chem
-import torch.nn.functional as F
 from rdkit.Chem import AllChem
 
 
