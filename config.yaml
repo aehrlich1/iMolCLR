@@ -21,7 +21,7 @@ model:
 dataset:
   num_workers: 12                         # dataloader number of workers
   valid_size: 0.05                        # ratio of validation data
-  data_path: data/pubchem-10k.txt   # path of pre-training data
+  data_path: data/pubchem-10m-clean.txt   # path of pre-training data
 
 loss:
   temperature: 0.1                        # temperature of (weighted) NT-Xent loss
