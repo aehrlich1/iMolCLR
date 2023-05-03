@@ -1,24 +1,5 @@
 import csv
 import math
-import signal
-import random
-import numpy as np
-from copy import deepcopy
-
-import torch
-from torch.utils.data import Dataset, DataLoader
-
-from torch_geometric.data import Data, Batch
-
-import networkx as nx
-from networkx.algorithms.components import node_connected_component
-
-from rdkit import Chem
-from rdkit.Chem.rdchem import HybridizationType
-from rdkit.Chem.rdchem import BondType as BT
-from rdkit.Chem.BRICS import BRICSDecompose, FindBRICSBonds, BreakBRICSBonds
-import csv
-import math
 import random
 import signal
 from copy import deepcopy
@@ -30,7 +11,6 @@ from networkx.algorithms.components import node_connected_component
 from rdkit import Chem
 from rdkit.Chem.BRICS import BRICSDecompose, FindBRICSBonds, BreakBRICSBonds
 from rdkit.Chem.rdchem import BondType as BT
-from rdkit.Chem.rdchem import HybridizationType
 from torch.utils.data import Dataset, DataLoader
 from torch_geometric.data import Data, Batch
 

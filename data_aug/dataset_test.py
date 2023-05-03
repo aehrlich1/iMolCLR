@@ -1,5 +1,4 @@
 import csv
-import csv
 
 import numpy as np
 import torch
@@ -7,7 +6,6 @@ from rdkit import Chem
 from rdkit import RDLogger
 from rdkit.Chem.Scaffolds.MurckoScaffold import MurckoScaffoldSmiles
 from rdkit.Chem.rdchem import BondType as BT
-from rdkit.Chem.rdchem import HybridizationType
 from torch.utils.data.sampler import SubsetRandomSampler
 from torch_geometric.data import Data, Dataset, DataLoader
 
