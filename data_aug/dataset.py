@@ -262,7 +262,10 @@ class MoleculeDatasetWrapper(object):
         train_smiles = [smiles_data[i] for i in train_idx]
         valid_smiles = [smiles_data[i] for i in valid_idx]
         del smiles_data
-        print(len(train_smiles), len(valid_smiles))
+        train_smiles_len = len(train_smiles)
+        valid_smiles_len = len(valid_smiles)
+        print(f"Training set size: {train_smiles_len}")
+        print(f"Validation set size: {valid_smiles_len}")
 
         train_dataset = MoleculeDataset(train_smiles)
         valid_dataset = MoleculeDataset(valid_smiles)
