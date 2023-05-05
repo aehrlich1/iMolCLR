@@ -84,7 +84,7 @@ def get_fragment_indices(mol):
 
 def get_fragments(mol):
     try:
-        with timeout(seconds=2):
+        with timeout(seconds=20):
 
             ref_indices = get_fragment_indices(mol)
 
