@@ -1,0 +1,11 @@
+name: imolclr_mac
+channels:
+  - pytorch
+  - pyg
+  - conda-forge
+dependencies:
+  - python=3.10.*
+  - torchvision=0.15.*
+  - tensorboard=2.12.*
+  - rdkit=2023.03.1
+  - pyyaml=6.*
