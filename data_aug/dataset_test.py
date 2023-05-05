@@ -7,7 +7,8 @@ from rdkit import RDLogger
 from rdkit.Chem.Scaffolds.MurckoScaffold import MurckoScaffoldSmiles
 from rdkit.Chem.rdchem import BondType as BT
 from torch.utils.data.sampler import SubsetRandomSampler
-from torch_geometric.data import Data, Dataset, DataLoader
+from torch_geometric.data import Data, Dataset
+from torch_geometric.loader import DataLoader
 
 RDLogger.DisableLog('rdApp.*')
 
@@ -106,11 +107,11 @@ def read_smiles(data_path, target, task):
 
 class MolTestDataset(Dataset):
     def __init__(self, data_path, target='p_np', task='classification'):
-        super(Dataset, self).__init__()
+        super().__init__(root=data_path)
         self.smiles_data, self.labels = read_smiles(data_path, target, task)
         self.task = task
 
-    def __getitem__(self, index):
+    def get (self, index):
         mol = Chem.MolFromSmiles(self.smiles_data[index])
         mol = Chem.AddHs(mol)
 
@@ -155,7 +156,7 @@ class MolTestDataset(Dataset):
         return data
 
 
-    def __len__(self):
+    def len (self):
         return len(self.smiles_data)
 
 
