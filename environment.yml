@@ -1,0 +1,16 @@
+name: imolclr_test
+channels:
+  - pytorch
+  - nvidia
+  - pyg
+  - conda-forge
+dependencies:
+  - python=3.10.*
+  - pytorch-cuda=11.8
+  - torchvision=0.15.*
+  - tensorboard=2.12.*
+  - rdkit=2023.03.1
+  - pyyaml=6.*
+  - pyg=2.3.*
+  - pytorch-scatter=2.1.*
+  - pytorch-sparse=0.6.*
