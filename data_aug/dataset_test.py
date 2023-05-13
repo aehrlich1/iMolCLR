@@ -160,9 +160,8 @@ class MolTestDataset(Dataset):
         return len(self.smiles_data)
 
 
-class MolTestDatasetWrapper(object):
+class MolTestDatasetWrapper:
     def __init__(self, batch_size, num_workers, valid_size, test_size, data_path, target, task):
-        super(object, self).__init__()
         self.data_path = data_path
         self.batch_size = batch_size
         self.num_workers = num_workers

@@ -241,9 +241,8 @@ def collate_fn(batch):
     return gis, gjs, mols, frag_mols
 
 
-class MoleculeDatasetWrapper(object):
+class MoleculeDatasetWrapper:
     def __init__(self, batch_size, num_workers, valid_size, data_path):
-        super(object, self).__init__()
         self.data_path = data_path
         self.batch_size = batch_size
         self.num_workers = num_workers

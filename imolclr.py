@@ -42,7 +42,7 @@ def _save_config_file(model_checkpoints_folder):
         shutil.copy('./config.yaml', os.path.join(model_checkpoints_folder, 'config.yaml'))
 
 
-class iMolCLR(object):
+class iMolCLR:
     def __init__(self, dataset, config):
         self.config = config
         self.device = self._get_device()

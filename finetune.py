@@ -21,7 +21,7 @@ def _save_config_file(log_dir, config):
             yaml.dump(config, config_file)
 
 
-class Normalizer(object):
+class Normalizer:
     """Normalize a Tensor and restore it later. """
 
     def __init__(self, tensor):
@@ -44,7 +44,7 @@ class Normalizer(object):
         self.std = state_dict['std']
 
 
-class FineTune(object):
+class FineTune:
     def __init__(self, dataset, config):
         self.config = config
         self.device = self._get_device()
