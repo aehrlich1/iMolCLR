@@ -11,10 +11,12 @@ from networkx.algorithms.components import node_connected_component
 from rdkit import Chem
 from rdkit.Chem.BRICS import BRICSDecompose, FindBRICSBonds, BreakBRICSBonds
 from rdkit.Chem.rdchem import BondType as BT
+from rdkit.Chem.rdchem import Mol
 from torch.utils.data import Dataset, DataLoader
 from torch_geometric.data import Data, Batch
+from sklearn.utils import shuffle
 
-ATOM_LIST = list(range(1,119))
+ATOM_LIST = list(range(1, 119))
 CHIRALITY_LIST = [
     Chem.rdchem.ChiralType.CHI_UNSPECIFIED,
     Chem.rdchem.ChiralType.CHI_TETRAHEDRAL_CW,
@@ -22,9 +24,9 @@ CHIRALITY_LIST = [
     Chem.rdchem.ChiralType.CHI_OTHER
 ]
 BOND_LIST = [
-    BT.SINGLE, 
-    BT.DOUBLE, 
-    BT.TRIPLE, 
+    BT.SINGLE,
+    BT.DOUBLE,
+    BT.TRIPLE,
     BT.AROMATIC
 ]
 BONDDIR_LIST = [
@@ -42,16 +44,20 @@ class timeout:
     def __init__(self, seconds=1, error_message='Timeout'):
         self.seconds = seconds
         self.error_message = error_message
+
     def handle_timeout(self, signum, frame):
         raise TimeoutError(self.error_message)
+
     def __enter__(self):
         signal.signal(signal.SIGALRM, self.handle_timeout)
         signal.alarm(self.seconds)
+
     def __exit__(self, type, value, traceback):
         signal.alarm(0)
 
 
-def read_smiles(data_path):
+# TODO: Refactor read_smiles method
+def read_smiles(data_path) -> list[str]:
     smiles_data = []
     with open(data_path) as csv_file:
         csv_reader = csv.reader(csv_file, delimiter=',')
@@ -123,7 +129,7 @@ def get_fragments(mol):
                                     frag_indices.append(idx)
 
             return frag_mols, frag_indices
-    
+
     except:
         print('timeout!')
         return [], [set()]
@@ -131,29 +137,29 @@ def get_fragments(mol):
 
 class MoleculeDataset(Dataset):
     def __init__(self, smiles_data):
-        super(Dataset, self).__init__()
+        super(Dataset).__init__()
         self.smiles_data = smiles_data
 
-    def __getitem__(self, index):
-        mol = Chem.MolFromSmiles(self.smiles_data[index])
+    def __getitem__(self, idx):
+        mol: Mol = Chem.MolFromSmiles(self.smiles_data[idx])
         # mol = Chem.AddHs(mol)
 
-        N = mol.GetNumAtoms()
-        M = mol.GetNumBonds()
+        n: int = mol.GetNumAtoms()
+        m: int = mol.GetNumBonds()
 
-        type_idx = []
-        chirality_idx = []
-        atomic_number = []
+        type_idx: list[int] = []
+        chirality_idx: list[int] = []
 
         for atom in mol.GetAtoms():
-            type_idx.append(ATOM_LIST.index(atom.GetAtomicNum()))
-            chirality_idx.append(CHIRALITY_LIST.index(atom.GetChiralTag()))
-            atomic_number.append(atom.GetAtomicNum())
+            type_idx.append(ATOM_LIST.index(atom.GetAtomicNum()))  # TODO: what is the point of that?
+            chirality_idx.append(CHIRALITY_LIST.index(atom.GetChiralTag()))  # TODO: what is the point here again? The respective class is already returned?
 
-        x1 = torch.tensor(type_idx, dtype=torch.long).view(-1,1)
-        x2 = torch.tensor(chirality_idx, dtype=torch.long).view(-1,1)
+        x1 = torch.tensor(type_idx, dtype=torch.long).view(-1, 1)
+        x2 = torch.tensor(chirality_idx, dtype=torch.long).view(-1, 1)
         x = torch.cat([x1, x2], dim=-1)
 
+        # TODO: there must be a package that does this for you
+        # e.g https://anaconda.org/conda-forge/openbabel
         row, col, edge_feat = [], [], []
         for bond in mol.GetBonds():
             start, end = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
@@ -172,46 +178,47 @@ class MoleculeDataset(Dataset):
         edge_attr = torch.tensor(np.array(edge_feat), dtype=torch.long)
 
         # random mask a subgraph of the molecule
-        num_mask_nodes = max([1, math.floor(0.25*N)])
-        num_mask_edges = max([0, math.floor(0.25*M)])
-        mask_nodes_i = random.sample(list(range(N)), num_mask_nodes)
-        mask_nodes_j = random.sample(list(range(N)), num_mask_nodes)
-        mask_edges_i_single = random.sample(list(range(M)), num_mask_edges)
-        mask_edges_j_single = random.sample(list(range(M)), num_mask_edges)
-        mask_edges_i = [2*i for i in mask_edges_i_single] + [2*i+1 for i in mask_edges_i_single]
-        mask_edges_j = [2*i for i in mask_edges_j_single] + [2*i+1 for i in mask_edges_j_single]
+        # TODO: convert atom masking and bond deletion percentage to a parameter
+        num_mask_nodes: int = max([1, math.floor(0.25 * n)])
+        num_mask_edges: int = max([0, math.floor(0.25 * m)])
+        mask_nodes_i: list[int] = random.sample(list(range(n)), num_mask_nodes)
+        mask_nodes_j: list[int] = random.sample(list(range(n)), num_mask_nodes)
+        mask_edges_i_single = random.sample(list(range(m)), num_mask_edges)
+        mask_edges_j_single = random.sample(list(range(m)), num_mask_edges)
+        mask_edges_i = [2 * i for i in mask_edges_i_single] + [2 * i + 1 for i in mask_edges_i_single]
+        mask_edges_j = [2 * i for i in mask_edges_j_single] + [2 * i + 1 for i in mask_edges_j_single]
 
         x_i = deepcopy(x)
         for atom_idx in mask_nodes_i:
-            x_i[atom_idx,:] = torch.tensor([len(ATOM_LIST), 0])
-        edge_index_i = torch.zeros((2, 2*(M-num_mask_edges)), dtype=torch.long)
-        edge_attr_i = torch.zeros((2*(M-num_mask_edges), 2), dtype=torch.long)
+            x_i[atom_idx] = torch.tensor([len(ATOM_LIST), 0])
+        edge_index_i = torch.zeros((2, 2 * (m - num_mask_edges)), dtype=torch.long)
+        edge_attr_i = torch.zeros((2 * (m - num_mask_edges), 2), dtype=torch.long)
         count = 0
-        for bond_idx in range(2*M):
+        for bond_idx in range(2 * m):
             if bond_idx not in mask_edges_i:
-                edge_index_i[:,count] = edge_index[:,bond_idx]
-                edge_attr_i[count,:] = edge_attr[bond_idx,:]
+                edge_index_i[:, count] = edge_index[:, bond_idx]
+                edge_attr_i[count, :] = edge_attr[bond_idx, :]
                 count += 1
         data_i = Data(x=x_i, edge_index=edge_index_i, edge_attr=edge_attr_i)
 
         x_j = deepcopy(x)
         for atom_idx in mask_nodes_j:
-            x_j[atom_idx,:] = torch.tensor([len(ATOM_LIST), 0])
-        edge_index_j = torch.zeros((2, 2*(M-num_mask_edges)), dtype=torch.long)
-        edge_attr_j = torch.zeros((2*(M-num_mask_edges), 2), dtype=torch.long)
+            x_j[atom_idx, :] = torch.tensor([len(ATOM_LIST), 0])
+        edge_index_j = torch.zeros((2, 2 * (m - num_mask_edges)), dtype=torch.long)
+        edge_attr_j = torch.zeros((2 * (m - num_mask_edges), 2), dtype=torch.long)
         count = 0
-        for bond_idx in range(2*M):
+        for bond_idx in range(2 * m):
             if bond_idx not in mask_edges_j:
-                edge_index_j[:,count] = edge_index[:,bond_idx]
-                edge_attr_j[count,:] = edge_attr[bond_idx,:]
+                edge_index_j[:, count] = edge_index[:, bond_idx]
+                edge_attr_j[count, :] = edge_attr[bond_idx, :]
                 count += 1
         data_j = Data(x=x_j, edge_index=edge_index_j, edge_attr=edge_attr_j)
 
         frag_mols, frag_indices = get_fragments(mol)
-        
-        return data_i, data_j, mol, N, frag_mols, frag_indices
-    
-    def __len__(self):
+
+        return data_i, data_j, mol, n, frag_mols, frag_indices
+
+    def __len__(self) -> int:
         return len(self.smiles_data)
 
 
@@ -242,38 +249,34 @@ def collate_fn(batch):
 
 
 class MoleculeDatasetWrapper:
-    def __init__(self, batch_size, num_workers, valid_size, data_path):
-        self.data_path = data_path
-        self.batch_size = batch_size
-        self.num_workers = num_workers
-        self.valid_size = valid_size
+    def __init__(self, batch_size: int, num_workers: int, valid_size: float, data_path: str):
+        self.data_path: str = data_path
+        self.batch_size: int = batch_size
+        self.num_workers: int = num_workers
+        self.valid_size: float = valid_size
 
-    def get_data_loaders(self):
-        smiles_data = read_smiles(self.data_path)
+    def get_data_loaders(self) -> tuple[DataLoader, DataLoader]:
+        smiles_data: list[str] = read_smiles(self.data_path)
 
+        smiles_data = shuffle(smiles_data, random_state=0)
         num_train = len(smiles_data)
-        indices = list(range(num_train))
-        np.random.shuffle(indices)
+        split: int = int(np.floor(self.valid_size * num_train))
 
-        split = int(np.floor(self.valid_size * num_train))
-        train_idx, valid_idx = indices[split:], indices[:split]
-
-        train_smiles = [smiles_data[i] for i in train_idx]
-        valid_smiles = [smiles_data[i] for i in valid_idx]
+        valid_smiles = smiles_data[:split]
+        train_smiles = smiles_data[split:]
         del smiles_data
-        train_smiles_len = len(train_smiles)
-        valid_smiles_len = len(valid_smiles)
-        print(f"Training set size: {train_smiles_len}")
-        print(f"Validation set size: {valid_smiles_len}")
+
+        print(f"Training set size: {len(train_smiles)}")
+        print(f"Validation set size: {len(valid_smiles)}")
 
         train_dataset = MoleculeDataset(train_smiles)
         valid_dataset = MoleculeDataset(valid_smiles)
 
-        train_loader = DataLoader(
+        train_loader: DataLoader = DataLoader(
             train_dataset, batch_size=self.batch_size, collate_fn=collate_fn,
             num_workers=self.num_workers, drop_last=True, shuffle=True
         )
-        valid_loader = DataLoader(
+        valid_loader: DataLoader = DataLoader(
             valid_dataset, batch_size=self.batch_size, collate_fn=collate_fn,
             num_workers=self.num_workers, drop_last=True
         )
