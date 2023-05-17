@@ -13,7 +13,7 @@ class TestDatasetMethods(unittest.TestCase):
         self.assertEqual('Cc1coc(SCc2csc(C(=O)NN)n2)n1', smiles_data[-1])
 
     def test_get_data_loaders(self):
-        dataset = MoleculeDatasetWrapper(batch_size=5, num_workers=12, valid_size=0.2, data_path='../data/test_pubchem-100-clean.txt')
+        dataset = MoleculeDatasetWrapper(batch_size=5, num_workers=10, valid_size=0.2, data_path='../data/test_pubchem-100-clean.txt')
         train_loader, valid_loader = dataset.get_data_loaders()
         self.assertEqual(16, len(train_loader))
         self.assertEqual(4, len(valid_loader))

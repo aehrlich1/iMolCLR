@@ -1,5 +1,5 @@
-gpu: cuda:0
-batch_size: 16                           # batch size
+gpu: cpu
+batch_size: 16                            # batch size
 epochs: 50                                # total number of epochs
 warmup: 10                                # warm-up epochs
 
@@ -8,7 +8,7 @@ resume_from: None                         # resume training
 log_every_n_steps: 200                    # print training log frequency
 
 optim:
-  init_lr: 0.0005                              # initial learning rate for Adam optimizer
+  init_lr: 0.0005                         # initial learning rate for Adam optimizer
   weight_decay: 0.00001                   # weight decay for Adam for Adam optimizer
 
 model: 
@@ -19,7 +19,7 @@ model:
   pool: mean                              # readout pooling (i.e., mean/max/add)
 
 dataset:
-  num_workers: 12                         # dataloader number of workers
+  num_workers: 10                         # dataloader number of workers
   valid_size: 0.05                        # ratio of validation data
   data_path: data/pubchem-10m-clean.txt   # path of pre-training data
 
