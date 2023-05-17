@@ -1,4 +1,4 @@
-name: imolclr_test
+name: imolclr
 channels:
   - pytorch
   - nvidia
