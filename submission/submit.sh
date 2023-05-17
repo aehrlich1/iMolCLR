@@ -4,4 +4,4 @@
 
 # 1. ssh into titan directory: /home/mescalin/aehrlich/src/iMolCLR
 # 2. git pull
-# 3. execute submit_job.slrm
+# 3. execute submit_job.slrm: sbatch submit_job.slrm

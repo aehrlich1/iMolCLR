@@ -14,5 +14,6 @@ MAIN_FILE="/home/mescalin/aehrlich/src/iMolCLR/finetune.py"
 OUTPUT_DIR="/scr/titan/aehrlich/imolclr_out/"
 CONDA_ENV_NAME="imolclr"
 
+source /home/mescalin/aehrlich/.bashrc
 conda activate $CONDA_ENV_NAME
 python $MAIN_FILE -o $OUTPUT_DIR
