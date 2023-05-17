@@ -1,0 +1,3 @@
+# README
+## submit a job to slurm
+To submit a job to slurm you need to...
