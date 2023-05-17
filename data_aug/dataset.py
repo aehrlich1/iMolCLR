@@ -160,6 +160,7 @@ class MoleculeDataset(Dataset):
 
         # TODO: there must be a package that does this for you
         # e.g https://anaconda.org/conda-forge/openbabel
+        # also, extract as a method
         row, col, edge_feat = [], [], []
         for bond in mol.GetBonds():
             start, end = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
@@ -269,8 +270,8 @@ class MoleculeDatasetWrapper:
         print(f"Training set size: {len(train_smiles)}")
         print(f"Validation set size: {len(valid_smiles)}")
 
-        train_dataset = MoleculeDataset(train_smiles)
-        valid_dataset = MoleculeDataset(valid_smiles)
+        train_dataset: MoleculeDataset = MoleculeDataset(train_smiles)
+        valid_dataset: MoleculeDataset = MoleculeDataset(valid_smiles)
 
         train_loader: DataLoader = DataLoader(
             train_dataset, batch_size=self.batch_size, collate_fn=collate_fn,
