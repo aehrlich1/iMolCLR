@@ -10,26 +10,26 @@ import torch
 from networkx.algorithms.components import node_connected_component
 from rdkit import Chem
 from rdkit.Chem.BRICS import BRICSDecompose, FindBRICSBonds, BreakBRICSBonds
-from rdkit.Chem.rdchem import BondType as BT
+from rdkit.Chem.rdchem import BondType
 from rdkit.Chem.rdchem import Mol
 from torch.utils.data import Dataset, DataLoader
 from torch_geometric.data import Data, Batch
 from sklearn.utils import shuffle
 
-ATOM_LIST = list(range(1, 119))
-CHIRALITY_LIST = [
+ATOM_LIST: list = list(range(1, 119))
+CHIRALITY_LIST: list = [
     Chem.rdchem.ChiralType.CHI_UNSPECIFIED,
     Chem.rdchem.ChiralType.CHI_TETRAHEDRAL_CW,
     Chem.rdchem.ChiralType.CHI_TETRAHEDRAL_CCW,
     Chem.rdchem.ChiralType.CHI_OTHER
 ]
-BOND_LIST = [
-    BT.SINGLE,
-    BT.DOUBLE,
-    BT.TRIPLE,
-    BT.AROMATIC
+BOND_LIST: list = [
+    BondType.SINGLE,
+    BondType.DOUBLE,
+    BondType.TRIPLE,
+    BondType.AROMATIC
 ]
-BONDDIR_LIST = [
+BOND_DIR_LIST: list = [
     Chem.rdchem.BondDir.NONE,
     Chem.rdchem.BondDir.ENDUPRIGHT,
     Chem.rdchem.BondDir.ENDDOWNRIGHT
@@ -168,11 +168,11 @@ class MoleculeDataset(Dataset):
             col += [end, start]
             edge_feat.append([
                 BOND_LIST.index(bond.GetBondType()),
-                BONDDIR_LIST.index(bond.GetBondDir())
+                BOND_DIR_LIST.index(bond.GetBondDir())
             ])
             edge_feat.append([
                 BOND_LIST.index(bond.GetBondType()),
-                BONDDIR_LIST.index(bond.GetBondDir())
+                BOND_DIR_LIST.index(bond.GetBondDir())
             ])
 
         edge_index = torch.tensor([row, col], dtype=torch.long)
