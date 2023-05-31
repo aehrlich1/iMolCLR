@@ -137,30 +137,76 @@ def get_fragments(mol):
 
 class MoleculeDataset(Dataset):
     def __init__(self, smiles_data):
-        super(Dataset).__init__()
         self.smiles_data = smiles_data
 
     def __getitem__(self, idx):
         mol: Mol = Chem.MolFromSmiles(self.smiles_data[idx])
-        # mol = Chem.AddHs(mol)
+        num_atoms: int = mol.GetNumAtoms()
+        num_bonds: int = mol.GetNumBonds()
 
-        n: int = mol.GetNumAtoms()
-        m: int = mol.GetNumBonds()
-
-        type_idx: list[int] = []
+        atom_types: list[int] = []
         chirality_idx: list[int] = []
 
         for atom in mol.GetAtoms():
-            type_idx.append(ATOM_LIST.index(atom.GetAtomicNum()))  # TODO: what is the point of that?
-            chirality_idx.append(CHIRALITY_LIST.index(atom.GetChiralTag()))  # TODO: what is the point here again? The respective class is already returned?
+            # TODO: what is the point of that?
+            # TODO: Refactor to: atom_types.append(atom.GetAtomicNum())
+            atom_types.append(ATOM_LIST.index(atom.GetAtomicNum()))
+            # TODO: what is the point here again? The respective class is already returned?
+            chirality_idx.append(CHIRALITY_LIST.index(atom.GetChiralTag()))
 
-        x1 = torch.tensor(type_idx, dtype=torch.long).view(-1, 1)
-        x2 = torch.tensor(chirality_idx, dtype=torch.long).view(-1, 1)
-        x = torch.cat([x1, x2], dim=-1)
+        x_atoms = torch.tensor(atom_types, dtype=torch.long).view(-1, 1)
+        x_bonds = torch.tensor(chirality_idx, dtype=torch.long).view(-1, 1)
+        x = torch.cat([x_atoms, x_bonds], dim=-1)
 
+        edge_index, edge_attribute = self.mystery_method(mol)
+
+        # random mask a subgraph of the molecule
+        # TODO: convert atom masking and bond deletion percentage to a parameter
+        num_mask_nodes: int = max([1, math.floor(0.25 * num_atoms)])
+        num_mask_edges: int = max([0, math.floor(0.25 * num_bonds)])
+        mask_nodes_i: list[int] = random.sample(list(range(num_atoms)), num_mask_nodes)
+        mask_nodes_j: list[int] = random.sample(list(range(num_atoms)), num_mask_nodes)
+        mask_edges_i_single = random.sample(list(range(num_bonds)), num_mask_edges)
+        mask_edges_j_single = random.sample(list(range(num_bonds)), num_mask_edges)
+        mask_edges_i = [2 * i for i in mask_edges_i_single] + [2 * i + 1 for i in mask_edges_i_single]
+        mask_edges_j = [2 * i for i in mask_edges_j_single] + [2 * i + 1 for i in mask_edges_j_single]
+
+        x_i = deepcopy(x)
+        for atom_idx in mask_nodes_i:
+            x_i[atom_idx] = torch.tensor([len(ATOM_LIST), 0])
+        edge_index_i = torch.zeros((2, 2 * (num_bonds - num_mask_edges)), dtype=torch.long)
+        edge_attr_i = torch.zeros((2 * (num_bonds - num_mask_edges), 2), dtype=torch.long)
+        count = 0
+        for bond_idx in range(2 * num_bonds):
+            if bond_idx not in mask_edges_i:
+                edge_index_i[:, count] = edge_index[:, bond_idx]
+                edge_attr_i[count, :] = edge_attr[bond_idx, :]
+                count += 1
+        data_i = Data(x=x_i, edge_index=edge_index_i, edge_attr=edge_attr_i)
+
+        x_j = deepcopy(x)
+        for atom_idx in mask_nodes_j:
+            x_j[atom_idx, :] = torch.tensor([len(ATOM_LIST), 0])
+        edge_index_j = torch.zeros((2, 2 * (num_bonds - num_mask_edges)), dtype=torch.long)
+        edge_attr_j = torch.zeros((2 * (num_bonds - num_mask_edges), 2), dtype=torch.long)
+        count = 0
+        for bond_idx in range(2 * num_bonds):
+            if bond_idx not in mask_edges_j:
+                edge_index_j[:, count] = edge_index[:, bond_idx]
+                edge_attr_j[count, :] = edge_attr[bond_idx, :]
+                count += 1
+        data_j = Data(x=x_j, edge_index=edge_index_j, edge_attr=edge_attr_j)
+
+        frag_mols, frag_indices = get_fragments(mol)
+
+        return data_i, data_j, mol, num_atoms, frag_mols, frag_indices
+
+    def __len__(self) -> int:
+        return len(self.smiles_data)
+
+    def mystery_method(self, mol: Mol) -> tuple[torch.Tensor, torch.Tensor]:
         # TODO: there must be a package that does this for you
         # e.g https://anaconda.org/conda-forge/openbabel
-        # also, extract as a method
         row, col, edge_feat = [], [], []
         for bond in mol.GetBonds():
             start, end = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
@@ -178,50 +224,7 @@ class MoleculeDataset(Dataset):
         edge_index = torch.tensor([row, col], dtype=torch.long)
         edge_attr = torch.tensor(np.array(edge_feat), dtype=torch.long)
 
-        # random mask a subgraph of the molecule
-        # TODO: convert atom masking and bond deletion percentage to a parameter
-        num_mask_nodes: int = max([1, math.floor(0.25 * n)])
-        num_mask_edges: int = max([0, math.floor(0.25 * m)])
-        mask_nodes_i: list[int] = random.sample(list(range(n)), num_mask_nodes)
-        mask_nodes_j: list[int] = random.sample(list(range(n)), num_mask_nodes)
-        mask_edges_i_single = random.sample(list(range(m)), num_mask_edges)
-        mask_edges_j_single = random.sample(list(range(m)), num_mask_edges)
-        mask_edges_i = [2 * i for i in mask_edges_i_single] + [2 * i + 1 for i in mask_edges_i_single]
-        mask_edges_j = [2 * i for i in mask_edges_j_single] + [2 * i + 1 for i in mask_edges_j_single]
-
-        x_i = deepcopy(x)
-        for atom_idx in mask_nodes_i:
-            x_i[atom_idx] = torch.tensor([len(ATOM_LIST), 0])
-        edge_index_i = torch.zeros((2, 2 * (m - num_mask_edges)), dtype=torch.long)
-        edge_attr_i = torch.zeros((2 * (m - num_mask_edges), 2), dtype=torch.long)
-        count = 0
-        for bond_idx in range(2 * m):
-            if bond_idx not in mask_edges_i:
-                edge_index_i[:, count] = edge_index[:, bond_idx]
-                edge_attr_i[count, :] = edge_attr[bond_idx, :]
-                count += 1
-        data_i = Data(x=x_i, edge_index=edge_index_i, edge_attr=edge_attr_i)
-
-        x_j = deepcopy(x)
-        for atom_idx in mask_nodes_j:
-            x_j[atom_idx, :] = torch.tensor([len(ATOM_LIST), 0])
-        edge_index_j = torch.zeros((2, 2 * (m - num_mask_edges)), dtype=torch.long)
-        edge_attr_j = torch.zeros((2 * (m - num_mask_edges), 2), dtype=torch.long)
-        count = 0
-        for bond_idx in range(2 * m):
-            if bond_idx not in mask_edges_j:
-                edge_index_j[:, count] = edge_index[:, bond_idx]
-                edge_attr_j[count, :] = edge_attr[bond_idx, :]
-                count += 1
-        data_j = Data(x=x_j, edge_index=edge_index_j, edge_attr=edge_attr_j)
-
-        frag_mols, frag_indices = get_fragments(mol)
-
-        return data_i, data_j, mol, n, frag_mols, frag_indices
-
-    def __len__(self) -> int:
-        return len(self.smiles_data)
-
+        return edge_index, edge_attr
 
 def collate_fn(batch):
     gis, gjs, mols, atom_nums, frag_mols, frag_indices = zip(*batch)
@@ -258,13 +261,13 @@ class MoleculeDatasetWrapper:
 
     def get_data_loaders(self) -> tuple[DataLoader, DataLoader]:
         smiles_data: list[str] = read_smiles(self.data_path)
-
         smiles_data = shuffle(smiles_data, random_state=0)
+
         num_train = len(smiles_data)
         split: int = int(np.floor(self.valid_size * num_train))
 
-        valid_smiles = smiles_data[:split]
-        train_smiles = smiles_data[split:]
+        valid_smiles: list[str] = smiles_data[:split]
+        train_smiles: list[str] = smiles_data[split:]
         del smiles_data
 
         print(f"Training set size: {len(train_smiles)}")
@@ -278,7 +281,7 @@ class MoleculeDatasetWrapper:
             num_workers=self.num_workers, drop_last=True, shuffle=True
         )
         valid_loader: DataLoader = DataLoader(
-            valid_dataset, batch_size=self.batch_size, collate_fn=collate_fn,
+             valid_dataset, batch_size=self.batch_size, collate_fn=collate_fn,
             num_workers=self.num_workers, drop_last=True
         )
 
