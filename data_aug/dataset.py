@@ -209,7 +209,6 @@ def get_graph(mol: Mol) -> tuple[torch.Tensor, torch.Tensor]:
     return edge_index, edge_attr
 
 
-# TODO: convert atom masking and bond deletion percentage to a parameter
 def _mask_subgraph(mol: Mol) -> tuple[list[int], list[int]]:
     masked_nodes = _mask_nodes(mol)
     masked_edges = _mask_edges(mol)
