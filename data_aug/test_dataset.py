@@ -2,6 +2,10 @@ import unittest
 from dataset import read_smiles
 from dataset import MoleculeDatasetWrapper
 from dataset import MoleculeDataset
+from dataset import get_graph
+from dataset import create_molecule
+import torch
+from rdkit import Chem
 
 
 class TestDatasetMethods(unittest.TestCase):
@@ -23,6 +27,24 @@ class TestDatasetMethods(unittest.TestCase):
         molecule_dataset = MoleculeDataset(smiles_data)
         n: int = molecule_dataset[0][3]
         self.assertEqual(13, n)
+
+    def test_get_graph(self):
+        smiles_data = read_smiles('../data/test_pubchem-100-clean.txt')
+        smiles_aspirin = smiles_data[0]
+        mol = Chem.MolFromSmiles(smiles_aspirin)
+        edge_set, edge_attr = get_graph(mol)
+        self.assertTrue(len(edge_set), 13*2)
+        self.assertTrue(torch.all(edge_attr[:, 1] == 0))
+
+    def test_get_graph_2(self):
+        mol = Chem.MolFromSmiles('CC(=O)C')
+        edge_set, edge_attr = get_graph(mol)
+
+    def test_create_molecule(self):
+        smiles_data = read_smiles('../data/test_pubchem-100-clean.txt')
+        smiles_aspirin = smiles_data[0]
+        mol = Chem.MolFromSmiles(smiles_aspirin)
+        molecule, num_atoms, num_bonds = create_molecule(mol)
 
 
 if __name__ == '__main__':

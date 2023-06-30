@@ -2,11 +2,11 @@ import csv
 import math
 import random
 import signal
-from copy import deepcopy
 
 import networkx as nx
 import numpy as np
 import torch
+import torch_geometric.data
 from networkx.algorithms.components import node_connected_component
 from rdkit import Chem
 from rdkit.Chem.BRICS import BRICSDecompose, FindBRICSBonds, BreakBRICSBonds
@@ -54,6 +54,32 @@ class timeout:
 
     def __exit__(self, type, value, traceback):
         signal.alarm(0)
+
+
+def collate_fn(batch):
+    gis, gjs, mols, atom_nums, frag_mols, frag_indices = zip(*batch)
+
+    frag_mols = [j for i in frag_mols for j in i]
+
+    # gis = Batch().from_data_list(gis)
+    # gjs = Batch().from_data_list(gjs)
+    gis = Batch.from_data_list(gis)
+    gjs = Batch.from_data_list(gjs)
+
+    gis.motif_batch = torch.zeros(gis.x.size(0), dtype=torch.long)
+    gjs.motif_batch = torch.zeros(gjs.x.size(0), dtype=torch.long)
+
+    curr_indicator = 1
+    curr_num = 0
+    for N, indices in zip(atom_nums, frag_indices):
+        for idx in indices:
+            curr_idx = np.array(list(idx)) + curr_num
+            gis.motif_batch[curr_idx] = curr_indicator
+            gjs.motif_batch[curr_idx] = curr_indicator
+            curr_indicator += 1
+        curr_num += N
+
+    return gis, gjs, mols, frag_mols
 
 
 # TODO: Refactor read_smiles method
@@ -135,121 +161,143 @@ def get_fragments(mol):
         return [], [set()]
 
 
+# TODO: there must be a package that does this for you
+# e.g https://anaconda.org/conda-forge/openbabel
+def get_graph(mol: Mol) -> tuple[torch.Tensor, torch.Tensor]:
+    """
+    Return a tuple consisting of an edge_index and edge attributes.
+    The edge_index or edge_set has the dimensions (2, 2E) where E is the number of edges/bonds.
+    Since we are only dealing with undirected graphs row 1 is the same as row 2 expect that each
+    pair is swapped.
+
+    [[row 1,
+     row 2]]
+
+    Example:
+    Given the molecule propane with the following graph:
+
+    C(0)-C(1)-C(2)
+
+    it's edge_set is given by:
+
+    [[0, 1, 1, 2],
+     [1, 0, 2, 1]]
+
+
+    edge_attributes: captures for each bond the bond_type (0 = single, 1 = double, etc.)
+    and the bond_direction (). Once again, since we have a undirected graph, every second entry is
+    copied and flipped.
+
+    The dimension of edge_attr is: (2E, 2).
+
+
+    :param mol:
+    :return:
+    """
+    row, col, edge_feat = [], [], []
+    for bond in mol.GetBonds():
+        start = bond.GetBeginAtomIdx()
+        end = bond.GetEndAtomIdx()
+        row += [start, end]
+        col += [end, start]
+        edge_feat.append([
+            BOND_LIST.index(bond.GetBondType()),
+            BOND_DIR_LIST.index(bond.GetBondDir())
+        ])
+        edge_feat.append([
+            BOND_LIST.index(bond.GetBondType()),
+            BOND_DIR_LIST.index(bond.GetBondDir())
+        ])
+
+    edge_index = torch.tensor([row, col], dtype=torch.long)
+    edge_attr = torch.tensor(np.array(edge_feat), dtype=torch.long)
+
+    return edge_index, edge_attr
+
+
+# TODO: convert atom masking and bond deletion percentage to a parameter
+def _mask_subgraph(mol: Mol) -> tuple[list[int], list[int]]:
+    masked_nodes = _mask_nodes(mol)
+    masked_edges = _mask_edges(mol)
+    return masked_nodes, masked_edges
+
+
+def _mask_nodes(mol: Mol) -> list[int]:
+    num_atoms: int = mol.GetNumAtoms()
+    num_mask_nodes: int = max([1, math.floor(0.25 * num_atoms)])
+    masked_nodes = random.sample(list(range(num_atoms)), num_mask_nodes)
+    return masked_nodes
+
+
+def _mask_edges(mol: Mol) -> list[int]:
+    num_bonds: int = mol.GetNumBonds()
+    num_mask_edges: int = max([0, math.floor(0.25 * num_bonds)])
+    masked_edges_single = random.sample(list(range(num_bonds)), num_mask_edges)
+    masked_edges: list[int] = [2 * i for i in masked_edges_single] + [2 * i + 1 for i in masked_edges_single]
+    return masked_edges
+
+
+def create_molecule(mol: Mol):
+    """
+    Create a molecule from a Mol
+
+    :param mol:
+    :return:
+    """
+    atom_types: list[int] = []
+    chirality_idx: list[int] = []
+
+    for atom in mol.GetAtoms():
+        # TODO: what is the point of that?
+        # TODO: Refactor to: atom_types.append(atom.GetAtomicNum())
+        atom_types.append(ATOM_LIST.index(atom.GetAtomicNum()))
+        # TODO: what is the point here again? The respective class is already returned?
+        chirality_idx.append(CHIRALITY_LIST.index(atom.GetChiralTag()))
+
+    x_atoms = torch.tensor(atom_types, dtype=torch.long).view(-1, 1)
+    x_bonds = torch.tensor(chirality_idx, dtype=torch.long).view(-1, 1)
+    molecule = torch.cat([x_atoms, x_bonds], dim=-1)
+
+    return molecule, mol.GetNumAtoms(), mol.GetNumBonds()
+
+
+def _augment_molecule(mol: Mol) -> torch_geometric.data.Data:
+    augmented_molecule, num_atoms, num_bonds = create_molecule(mol)
+    masked_nodes, masked_edges = _mask_subgraph(mol)
+    augmented_molecule[masked_nodes] = torch.tensor([len(ATOM_LIST), 0])
+
+    num_masked_edges: int = max([0, math.floor(0.25 * num_bonds)])
+    edge_index, edge_attr = get_graph(mol)
+    augmented_edge_index = torch.zeros((2, 2 * (num_bonds - num_masked_edges)), dtype=torch.long)
+    edge_attr_i = torch.zeros((2 * (num_bonds - num_masked_edges), 2), dtype=torch.long)
+    count = 0
+
+    for bond_idx in range(2 * num_bonds):
+        if bond_idx not in masked_edges:
+            augmented_edge_index[:, count] = edge_index[:, bond_idx]
+            edge_attr_i[count, :] = edge_attr[bond_idx, :]
+            count += 1
+
+    pyg_graph = Data(x=augmented_molecule, edge_index=edge_index, edge_attr=edge_attr)
+    return pyg_graph
+
+
 class MoleculeDataset(Dataset):
     def __init__(self, smiles_data):
         self.smiles_data = smiles_data
 
     def __getitem__(self, idx):
         mol: Mol = Chem.MolFromSmiles(self.smiles_data[idx])
-        num_atoms: int = mol.GetNumAtoms()
-        num_bonds: int = mol.GetNumBonds()
-
-        atom_types: list[int] = []
-        chirality_idx: list[int] = []
-
-        for atom in mol.GetAtoms():
-            # TODO: what is the point of that?
-            # TODO: Refactor to: atom_types.append(atom.GetAtomicNum())
-            atom_types.append(ATOM_LIST.index(atom.GetAtomicNum()))
-            # TODO: what is the point here again? The respective class is already returned?
-            chirality_idx.append(CHIRALITY_LIST.index(atom.GetChiralTag()))
-
-        x_atoms = torch.tensor(atom_types, dtype=torch.long).view(-1, 1)
-        x_bonds = torch.tensor(chirality_idx, dtype=torch.long).view(-1, 1)
-        x = torch.cat([x_atoms, x_bonds], dim=-1)
-
-        edge_index, edge_attribute = self.mystery_method(mol)
-
-        # random mask a subgraph of the molecule
-        # TODO: convert atom masking and bond deletion percentage to a parameter
-        num_mask_nodes: int = max([1, math.floor(0.25 * num_atoms)])
-        num_mask_edges: int = max([0, math.floor(0.25 * num_bonds)])
-        mask_nodes_i: list[int] = random.sample(list(range(num_atoms)), num_mask_nodes)
-        mask_nodes_j: list[int] = random.sample(list(range(num_atoms)), num_mask_nodes)
-        mask_edges_i_single = random.sample(list(range(num_bonds)), num_mask_edges)
-        mask_edges_j_single = random.sample(list(range(num_bonds)), num_mask_edges)
-        mask_edges_i = [2 * i for i in mask_edges_i_single] + [2 * i + 1 for i in mask_edges_i_single]
-        mask_edges_j = [2 * i for i in mask_edges_j_single] + [2 * i + 1 for i in mask_edges_j_single]
-
-        x_i = deepcopy(x)
-        for atom_idx in mask_nodes_i:
-            x_i[atom_idx] = torch.tensor([len(ATOM_LIST), 0])
-        edge_index_i = torch.zeros((2, 2 * (num_bonds - num_mask_edges)), dtype=torch.long)
-        edge_attr_i = torch.zeros((2 * (num_bonds - num_mask_edges), 2), dtype=torch.long)
-        count = 0
-        for bond_idx in range(2 * num_bonds):
-            if bond_idx not in mask_edges_i:
-                edge_index_i[:, count] = edge_index[:, bond_idx]
-                edge_attr_i[count, :] = edge_attr[bond_idx, :]
-                count += 1
-        data_i = Data(x=x_i, edge_index=edge_index_i, edge_attr=edge_attr_i)
-
-        x_j = deepcopy(x)
-        for atom_idx in mask_nodes_j:
-            x_j[atom_idx, :] = torch.tensor([len(ATOM_LIST), 0])
-        edge_index_j = torch.zeros((2, 2 * (num_bonds - num_mask_edges)), dtype=torch.long)
-        edge_attr_j = torch.zeros((2 * (num_bonds - num_mask_edges), 2), dtype=torch.long)
-        count = 0
-        for bond_idx in range(2 * num_bonds):
-            if bond_idx not in mask_edges_j:
-                edge_index_j[:, count] = edge_index[:, bond_idx]
-                edge_attr_j[count, :] = edge_attr[bond_idx, :]
-                count += 1
-        data_j = Data(x=x_j, edge_index=edge_index_j, edge_attr=edge_attr_j)
-
-        frag_mols, frag_indices = get_fragments(mol)
+        data_i = _augment_molecule(mol)
+        data_j = _augment_molecule(mol)
+        num_atoms = mol.GetNumAtoms()
+        frag_mols = get_fragments(mol)
+        frag_indices = get_fragment_indices(mol)
 
         return data_i, data_j, mol, num_atoms, frag_mols, frag_indices
 
     def __len__(self) -> int:
         return len(self.smiles_data)
-
-    def mystery_method(self, mol: Mol) -> tuple[torch.Tensor, torch.Tensor]:
-        # TODO: there must be a package that does this for you
-        # e.g https://anaconda.org/conda-forge/openbabel
-        row, col, edge_feat = [], [], []
-        for bond in mol.GetBonds():
-            start, end = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
-            row += [start, end]
-            col += [end, start]
-            edge_feat.append([
-                BOND_LIST.index(bond.GetBondType()),
-                BOND_DIR_LIST.index(bond.GetBondDir())
-            ])
-            edge_feat.append([
-                BOND_LIST.index(bond.GetBondType()),
-                BOND_DIR_LIST.index(bond.GetBondDir())
-            ])
-
-        edge_index = torch.tensor([row, col], dtype=torch.long)
-        edge_attr = torch.tensor(np.array(edge_feat), dtype=torch.long)
-
-        return edge_index, edge_attr
-
-def collate_fn(batch):
-    gis, gjs, mols, atom_nums, frag_mols, frag_indices = zip(*batch)
-
-    frag_mols = [j for i in frag_mols for j in i]
-
-    # gis = Batch().from_data_list(gis)
-    # gjs = Batch().from_data_list(gjs)
-    gis = Batch.from_data_list(gis)
-    gjs = Batch.from_data_list(gjs)
-
-    gis.motif_batch = torch.zeros(gis.x.size(0), dtype=torch.long)
-    gjs.motif_batch = torch.zeros(gjs.x.size(0), dtype=torch.long)
-
-    curr_indicator = 1
-    curr_num = 0
-    for N, indices in zip(atom_nums, frag_indices):
-        for idx in indices:
-            curr_idx = np.array(list(idx)) + curr_num
-            gis.motif_batch[curr_idx] = curr_indicator
-            gjs.motif_batch[curr_idx] = curr_indicator
-            curr_indicator += 1
-        curr_num += N
-
-    return gis, gjs, mols, frag_mols
 
 
 class MoleculeDatasetWrapper:
@@ -281,7 +329,7 @@ class MoleculeDatasetWrapper:
             num_workers=self.num_workers, drop_last=True, shuffle=True
         )
         valid_loader: DataLoader = DataLoader(
-             valid_dataset, batch_size=self.batch_size, collate_fn=collate_fn,
+            valid_dataset, batch_size=self.batch_size, collate_fn=collate_fn,
             num_workers=self.num_workers, drop_last=True
         )
 
