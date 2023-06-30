@@ -17,12 +17,6 @@ from torch_geometric.data import Data, Batch
 from sklearn.utils import shuffle
 
 ATOM_MASK_CONSTANT = 119
-CHIRALITY_LIST: list = [
-    Chem.rdchem.ChiralType.CHI_UNSPECIFIED,
-    Chem.rdchem.ChiralType.CHI_TETRAHEDRAL_CW,
-    Chem.rdchem.ChiralType.CHI_TETRAHEDRAL_CCW,
-    Chem.rdchem.ChiralType.CHI_OTHER
-]
 BOND_LIST: list = [
     BondType.SINGLE,
     BondType.DOUBLE,
@@ -237,7 +231,7 @@ def _mask_edges(mol: Mol) -> list[int]:
     return masked_edges
 
 
-def create_molecule(mol: Mol):
+def create_molecule(mol: Mol) -> tuple[torch.Tensor, int, int]:
     """
     Create a molecule from a Mol
 
@@ -249,8 +243,7 @@ def create_molecule(mol: Mol):
 
     for atom in mol.GetAtoms():
         atom_types.append(atom.GetAtomicNum())
-        # TODO: what is the point here again? The respective class is already returned?
-        chirality_idx.append(CHIRALITY_LIST.index(atom.GetChiralTag()))
+        chirality_idx.append(int(atom.GetChiralTag()))
 
     x_atoms = torch.tensor(atom_types, dtype=torch.long).view(-1, 1)
     x_bonds = torch.tensor(chirality_idx, dtype=torch.long).view(-1, 1)

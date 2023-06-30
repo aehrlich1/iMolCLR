@@ -13,6 +13,7 @@ class TestDatasetMethods(unittest.TestCase):
     ethane_smiles: str = 'CC'
     aspirin_smiles: str = 'O=C(C)Oc1ccccc1C(=O)O'
     acetone_smiles: str = 'CC(=O)C'
+    L_alanine_smiles: str = 'N[C@@H](C)C(=O)O'
 
     def test_read_smiles(self):
         smiles_data = read_smiles('../data/test_pubchem-100-clean.txt')
@@ -45,12 +46,14 @@ class TestDatasetMethods(unittest.TestCase):
         edge_set, edge_attr = get_graph(mol)
 
     def test_create_molecule(self):
-        acetone_mol = Chem.MolFromSmiles(self.acetone_smiles)
+        acetone_mol = Chem.MolFromSmiles(self.L_alanine_smiles)
         molecule, num_atoms, num_bonds = create_molecule(acetone_mol)
         atom_list = molecule.T[0].tolist()
         chirality_list = molecule.T[1].tolist()
-        self.assertEqual(atom_list, [6, 6, 8, 6])
-        self.assertEqual(chirality_list, [0, 0, 0, 0])
+        self.assertEqual(num_atoms, 6)
+        self.assertEqual(num_bonds, 5)
+        self.assertEqual(atom_list, [7, 6, 6, 6, 8, 8])
+        self.assertEqual(chirality_list, [0, 1, 0, 0, 0, 0])
 
 
 if __name__ == '__main__':
