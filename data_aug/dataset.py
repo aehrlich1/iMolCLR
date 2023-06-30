@@ -16,7 +16,7 @@ from torch.utils.data import Dataset, DataLoader
 from torch_geometric.data import Data, Batch
 from sklearn.utils import shuffle
 
-ATOM_LIST: list = list(range(1, 119))
+ATOM_MASK_CONSTANT = 119
 CHIRALITY_LIST: list = [
     Chem.rdchem.ChiralType.CHI_UNSPECIFIED,
     Chem.rdchem.ChiralType.CHI_TETRAHEDRAL_CW,
@@ -248,9 +248,7 @@ def create_molecule(mol: Mol):
     chirality_idx: list[int] = []
 
     for atom in mol.GetAtoms():
-        # TODO: what is the point of that?
-        # TODO: Refactor to: atom_types.append(atom.GetAtomicNum())
-        atom_types.append(ATOM_LIST.index(atom.GetAtomicNum()))
+        atom_types.append(atom.GetAtomicNum())
         # TODO: what is the point here again? The respective class is already returned?
         chirality_idx.append(CHIRALITY_LIST.index(atom.GetChiralTag()))
 
@@ -264,7 +262,7 @@ def create_molecule(mol: Mol):
 def _augment_molecule(mol: Mol) -> torch_geometric.data.Data:
     augmented_molecule, num_atoms, num_bonds = create_molecule(mol)
     masked_nodes, masked_edges = _mask_subgraph(mol)
-    augmented_molecule[masked_nodes] = torch.tensor([len(ATOM_LIST), 0])
+    augmented_molecule[masked_nodes] = torch.tensor([ATOM_MASK_CONSTANT, 0])
 
     num_masked_edges: int = max([0, math.floor(0.25 * num_bonds)])
     edge_index, edge_attr = get_graph(mol)
