@@ -254,7 +254,7 @@ def create_molecule(mol: Mol) -> tuple[torch.Tensor, int, int]:
 def _augment_molecule(mol: Mol) -> torch_geometric.data.Data:
     augmented_molecule, num_atoms, num_bonds = create_molecule(mol)
     masked_nodes, masked_edges = _mask_subgraph(mol)
-    augmented_molecule[masked_nodes] = torch.tensor([ATOM_MASK_CONSTANT, 0])
+    augmented_molecule[masked_nodes, 0] = torch.tensor([ATOM_MASK_CONSTANT])
 
     num_masked_edges: int = max([0, math.floor(0.25 * num_bonds)])
     edge_index, edge_attr = get_graph(mol)
