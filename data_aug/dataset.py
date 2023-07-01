@@ -209,20 +209,20 @@ def get_graph(mol: Mol) -> tuple[torch.Tensor, torch.Tensor]:
     return edge_index, edge_attr
 
 
-def _mask_subgraph(mol: Mol) -> tuple[list[int], list[int]]:
-    masked_nodes = _mask_nodes(mol)
-    masked_edges = _mask_edges(mol)
+def _mask_subgraph_idx(mol: Mol) -> tuple[list[int], list[int]]:
+    masked_nodes = _mask_nodes_idx(mol)
+    masked_edges = _mask_edges_idx(mol)
     return masked_nodes, masked_edges
 
 
-def _mask_nodes(mol: Mol) -> list[int]:
+def _mask_nodes_idx(mol: Mol) -> list[int]:
     num_atoms: int = mol.GetNumAtoms()
     num_mask_nodes: int = max([1, math.floor(0.25 * num_atoms)])
     masked_nodes = random.sample(list(range(num_atoms)), num_mask_nodes)
     return masked_nodes
 
 
-def _mask_edges(mol: Mol) -> list[int]:
+def _mask_edges_idx(mol: Mol) -> list[int]:
     num_bonds: int = mol.GetNumBonds()
     num_mask_edges: int = max([0, math.floor(0.25 * num_bonds)])
     masked_edges_single = random.sample(list(range(num_bonds)), num_mask_edges)
@@ -253,7 +253,7 @@ def create_molecule(mol: Mol) -> tuple[torch.Tensor, int, int]:
 
 def _augment_molecule(mol: Mol) -> torch_geometric.data.Data:
     augmented_molecule, num_atoms, num_bonds = create_molecule(mol)
-    masked_nodes, masked_edges = _mask_subgraph(mol)
+    masked_nodes, masked_edges = _mask_subgraph_idx(mol)
     augmented_molecule[masked_nodes, 0] = torch.tensor([ATOM_MASK_CONSTANT])
 
     num_masked_edges: int = max([0, math.floor(0.25 * num_bonds)])
