@@ -1,9 +1,5 @@
 import unittest
-from dataset import read_smiles
-from dataset import MoleculeDatasetWrapper
-from dataset import MoleculeDataset
-from dataset import get_graph
-from dataset import create_molecule
+from dataset import *
 import torch
 from rdkit import Chem
 
@@ -46,8 +42,8 @@ class TestDatasetMethods(unittest.TestCase):
         edge_set, edge_attr = get_graph(mol)
 
     def test_create_molecule(self):
-        acetone_mol = Chem.MolFromSmiles(self.L_alanine_smiles)
-        molecule, num_atoms, num_bonds = create_molecule(acetone_mol)
+        l_alanine_mol = Chem.MolFromSmiles(self.L_alanine_smiles)
+        molecule, num_atoms, num_bonds = create_molecule(l_alanine_mol)
         atom_list = molecule.T[0].tolist()
         chirality_list = molecule.T[1].tolist()
         self.assertEqual(num_atoms, 6)

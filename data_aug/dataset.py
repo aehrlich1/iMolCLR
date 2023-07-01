@@ -251,7 +251,7 @@ def create_molecule(mol: Mol) -> tuple[torch.Tensor, int, int]:
     return molecule, mol.GetNumAtoms(), mol.GetNumBonds()
 
 
-def _augment_molecule(mol: Mol) -> torch_geometric.data.Data:
+def augment_molecule(mol: Mol) -> torch_geometric.data.Data:
     augmented_molecule, num_atoms, num_bonds = create_molecule(mol)
     masked_nodes, masked_edges = _mask_subgraph_idx(mol)
     augmented_molecule[masked_nodes, 0] = torch.tensor([ATOM_MASK_CONSTANT])
@@ -278,8 +278,8 @@ class MoleculeDataset(Dataset):
 
     def __getitem__(self, idx):
         mol: Mol = Chem.MolFromSmiles(self.smiles_data[idx])
-        data_i = _augment_molecule(mol)
-        data_j = _augment_molecule(mol)
+        data_i = augment_molecule(mol)
+        data_j = augment_molecule(mol)
         num_atoms = mol.GetNumAtoms()
         frag_mols = get_fragments(mol)
         frag_indices = get_fragment_indices(mol)
