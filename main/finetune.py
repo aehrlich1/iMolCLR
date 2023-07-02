@@ -17,7 +17,7 @@ from models.ginet_finetune import GINet
 def _save_config_file(log_dir, config):
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
-        with open(os.path.join(log_dir, 'config_finetune.yaml'), 'w') as config_file:
+        with open(os.path.join(log_dir, '../config/config_finetune.yaml'), 'w') as config_file:
             yaml.dump(config, config_file)
 
 
@@ -54,7 +54,7 @@ class FineTune:
         dir_name = config['fine_tune_from'].split('/')[0] + '-' + \
             config['fine_tune_from'].split('/')[-1] + '-' + config['task_name']
         subdir_name = current_time + '-' + config['dataset']['target']
-        self.log_dir = os.path.join('experiments', dir_name, subdir_name)
+        self.log_dir = os.path.join('../experiments', dir_name, subdir_name)
 
         model_yaml_dir = os.path.join(config['fine_tune_from'], 'checkpoints')
         for fn in os.listdir(model_yaml_dir):
@@ -320,7 +320,7 @@ def run(config):
 
 
 def get_config():
-    config = yaml.load(open("config_finetune.yaml", "r"), Loader=yaml.FullLoader)
+    config = yaml.load(open("../config/config_finetune.yaml", "r"), Loader=yaml.FullLoader)
 
     if config['task_name'] == 'BBBP':
         config['dataset']['task'] = 'classification'
@@ -412,10 +412,10 @@ def get_config():
 if __name__ == '__main__':
     config, target_list = get_config()
 
-    os.makedirs('experiments', exist_ok=True)
+    os.makedirs('../experiments', exist_ok=True)
     dir_name = config['fine_tune_from'].split('/')[0] + '-' + \
         config['fine_tune_from'].split('/')[-1] + '-' + config['task_name']
-    save_dir = os.path.join('experiments', dir_name)
+    save_dir = os.path.join('../experiments', dir_name)
 
     current_time = datetime.now().strftime('%b%d_%H-%M-%S')
     

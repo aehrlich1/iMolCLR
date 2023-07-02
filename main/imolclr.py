@@ -1,6 +1,5 @@
 import os
 import shutil
-import sys
 from datetime import datetime
 
 import numpy as np
@@ -39,16 +38,16 @@ def read_smiles(data_path):
 def _save_config_file(model_checkpoints_folder):
     if not os.path.exists(model_checkpoints_folder):
         os.makedirs(model_checkpoints_folder)
-        shutil.copy('./config.yaml', os.path.join(model_checkpoints_folder, 'config.yaml'))
+        shutil.copy('../config/config.yaml', os.path.join(model_checkpoints_folder, 'config.yaml'))
 
 
 class iMolCLR:
     def __init__(self, dataset, config):
         self.config = config
         self.device = self._get_device()
-        
+
         dir_name = datetime.now().strftime('%b%d_%H-%M-%S')
-        log_dir = os.path.join('runs', dir_name)
+        log_dir = os.path.join('../runs', dir_name)
         self.writer = SummaryWriter(log_dir=log_dir)
 
         self.dataset = dataset
@@ -73,14 +72,14 @@ class iMolCLR:
         model = GINet(**self.config["model"]).to(self.device)
         model = self._load_pre_trained_weights(model)
         print(model)
-        
+
         optimizer = torch.optim.Adam(
-            model.parameters(), self.config['optim']['init_lr'], 
+            model.parameters(), self.config['optim']['init_lr'],
             weight_decay=self.config['optim']['weight_decay']
         )
         print('Optimizer:', optimizer)
 
-        scheduler = CosineAnnealingLR(optimizer, T_max=self.config['epochs']-9, eta_min=0, last_epoch=-1)
+        scheduler = CosineAnnealingLR(optimizer, T_max=self.config['epochs'] - 9, eta_min=0, last_epoch=-1)
 
         if apex_support and self.config['fp16_precision']:
             model, optimizer = amp.initialize(model, optimizer,
@@ -96,7 +95,7 @@ class iMolCLR:
         valid_n_iter = 0
         best_valid_loss = np.inf
 
-        torch.cuda.empty_cache() 
+        torch.cuda.empty_cache()
 
         for epoch_counter in range(self.config['epochs']):
             for bn, (g1, g2, mols, frag_mols) in enumerate(train_loader):
@@ -146,14 +145,15 @@ class iMolCLR:
                     # save the model weights
                     best_valid_loss = valid_loss
                     torch.save(model.state_dict(), os.path.join(model_checkpoints_folder, 'model.pth'))
-            
+
                 self.writer.add_scalar('valid_loss_global', valid_loss_global, global_step=valid_n_iter)
                 self.writer.add_scalar('valid_loss_sub', valid_loss_sub, global_step=valid_n_iter)
                 self.writer.add_scalar('valid_loss', valid_loss, global_step=valid_n_iter)
                 valid_n_iter += 1
-            
-            if (epoch_counter+1) % 5 == 0:
-                torch.save(model.state_dict(), os.path.join(model_checkpoints_folder, 'model_{}.pth'.format(str(epoch_counter))))
+
+            if (epoch_counter + 1) % 5 == 0:
+                torch.save(model.state_dict(),
+                           os.path.join(model_checkpoints_folder, 'model_{}.pth'.format(str(epoch_counter))))
 
             # warmup for the first 10 epochs
             if epoch_counter >= self.config['warmup'] - 1:
@@ -199,7 +199,7 @@ class iMolCLR:
                 valid_loss_sub += loss_sub.item()
 
                 counter += 1
-            
+
             valid_loss_global /= counter
             valid_loss_sub /= counter
 
@@ -208,7 +208,7 @@ class iMolCLR:
 
 
 def main():
-    config = yaml.load(open("config.yaml", "r"), Loader=yaml.FullLoader)
+    config = yaml.load(open("../config/config.yaml", "r"), Loader=yaml.FullLoader)
     print(config)
     dataset = MoleculeDatasetWrapper(config['batch_size'], **config['dataset'])
 
