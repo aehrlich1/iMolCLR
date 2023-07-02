@@ -16,7 +16,7 @@ from torch.utils.data import Dataset, DataLoader
 from torch_geometric.data import Data, Batch
 from sklearn.utils import shuffle
 
-ATOM_MASK_CONSTANT = 119
+ATOM_MASK_CONSTANT = 118
 BOND_LIST: list = [
     BondType.SINGLE,
     BondType.DOUBLE,
