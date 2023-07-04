@@ -412,10 +412,10 @@ def get_config():
 if __name__ == '__main__':
     config, target_list = get_config()
 
-    os.makedirs('../experiments', exist_ok=True)
+    os.makedirs('./experiments', exist_ok=True)
     dir_name = config['fine_tune_from'].split('/')[0] + '-' + \
         config['fine_tune_from'].split('/')[-1] + '-' + config['task_name']
-    save_dir = os.path.join('../experiments', dir_name)
+    save_dir = os.path.join('./experiments', dir_name)
 
     current_time = datetime.now().strftime('%b%d_%H-%M-%S')
     
