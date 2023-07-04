@@ -38,7 +38,8 @@ def read_smiles(data_path):
 def _save_config_file(model_checkpoints_folder):
     if not os.path.exists(model_checkpoints_folder):
         os.makedirs(model_checkpoints_folder)
-        shutil.copy('../config/config.yaml', os.path.join(model_checkpoints_folder, 'config.yaml'))
+        shutil.copy('./config/config.yaml',
+                    os.path.join(model_checkpoints_folder, 'config.yaml'))
 
 
 class iMolCLR:
@@ -47,12 +48,13 @@ class iMolCLR:
         self.device = self._get_device()
 
         dir_name = datetime.now().strftime('%b%d_%H-%M-%S')
-        log_dir = os.path.join('../runs', dir_name)
+        log_dir = os.path.join('./runs', dir_name)
         self.writer = SummaryWriter(log_dir=log_dir)
 
         self.dataset = dataset
         self.nt_xent_criterion = NTXentLoss(self.device, **config['loss'])
-        self.weighted_nt_xent_criterion = WeightedNTXentLoss(self.device, **config['loss'])
+        self.weighted_nt_xent_criterion = WeightedNTXentLoss(
+            self.device, **config['loss'])
 
     def _get_device(self):
         # device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -79,14 +81,16 @@ class iMolCLR:
         )
         print('Optimizer:', optimizer)
 
-        scheduler = CosineAnnealingLR(optimizer, T_max=self.config['epochs'] - 9, eta_min=0, last_epoch=-1)
+        scheduler = CosineAnnealingLR(
+            optimizer, T_max=self.config['epochs'] - 9, eta_min=0, last_epoch=-1)
 
         if apex_support and self.config['fp16_precision']:
             model, optimizer = amp.initialize(model, optimizer,
                                               opt_level='O2',
                                               keep_batchnorm_fp32=True)
 
-        model_checkpoints_folder = os.path.join(self.writer.log_dir, 'checkpoints')
+        model_checkpoints_folder = os.path.join(
+            self.writer.log_dir, 'checkpoints')
 
         # save config file
         _save_config_file(model_checkpoints_folder)
@@ -111,7 +115,8 @@ class iMolCLR:
                 # normalize projection feature vectors
                 z1_global = F.normalize(z1_global, dim=1)
                 z2_global = F.normalize(z2_global, dim=1)
-                loss_global = self.weighted_nt_xent_criterion(z1_global, z2_global, mols)
+                loss_global = self.weighted_nt_xent_criterion(
+                    z1_global, z2_global, mols)
 
                 # normalize projection feature vectors
                 z1_sub = F.normalize(z1_sub, dim=1)
@@ -121,11 +126,15 @@ class iMolCLR:
                 loss = loss_global + self.config['loss']['lambda_2'] * loss_sub
 
                 if n_iter % self.config['log_every_n_steps'] == 0:
-                    self.writer.add_scalar('loss_global', loss_global, global_step=n_iter)
-                    self.writer.add_scalar('loss_sub', loss_sub, global_step=n_iter)
+                    self.writer.add_scalar(
+                        'loss_global', loss_global, global_step=n_iter)
+                    self.writer.add_scalar(
+                        'loss_sub', loss_sub, global_step=n_iter)
                     self.writer.add_scalar('loss', loss, global_step=n_iter)
-                    self.writer.add_scalar('cosine_lr_decay', scheduler.get_last_lr()[0], global_step=n_iter)
-                    print(epoch_counter, bn, loss_global.item(), loss_sub.item(), loss.item())
+                    self.writer.add_scalar('cosine_lr_decay', scheduler.get_last_lr()[
+                                           0], global_step=n_iter)
+                    print(epoch_counter, bn, loss_global.item(),
+                          loss_sub.item(), loss.item())
 
                 if apex_support and self.config['fp16_precision']:
                     with amp.scale_loss(loss, optimizer) as scaled_loss:
@@ -138,17 +147,23 @@ class iMolCLR:
 
             # validate the model if requested
             if epoch_counter % self.config['eval_every_n_epochs'] == 0:
-                valid_loss_global, valid_loss_sub = self._validate(model, valid_loader)
+                valid_loss_global, valid_loss_sub = self._validate(
+                    model, valid_loader)
                 valid_loss = valid_loss_global + 0.5 * valid_loss_sub
-                print(epoch_counter, bn, valid_loss_global, valid_loss_sub, valid_loss, '(validation)')
+                print(epoch_counter, bn, valid_loss_global,
+                      valid_loss_sub, valid_loss, '(validation)')
                 if valid_loss < best_valid_loss:
                     # save the model weights
                     best_valid_loss = valid_loss
-                    torch.save(model.state_dict(), os.path.join(model_checkpoints_folder, 'model.pth'))
+                    torch.save(model.state_dict(), os.path.join(
+                        model_checkpoints_folder, 'model.pth'))
 
-                self.writer.add_scalar('valid_loss_global', valid_loss_global, global_step=valid_n_iter)
-                self.writer.add_scalar('valid_loss_sub', valid_loss_sub, global_step=valid_n_iter)
-                self.writer.add_scalar('valid_loss', valid_loss, global_step=valid_n_iter)
+                self.writer.add_scalar(
+                    'valid_loss_global', valid_loss_global, global_step=valid_n_iter)
+                self.writer.add_scalar(
+                    'valid_loss_sub', valid_loss_sub, global_step=valid_n_iter)
+                self.writer.add_scalar(
+                    'valid_loss', valid_loss, global_step=valid_n_iter)
                 valid_n_iter += 1
 
             if (epoch_counter + 1) % 5 == 0:
@@ -161,8 +176,10 @@ class iMolCLR:
 
     def _load_pre_trained_weights(self, model):
         try:
-            checkpoints_folder = os.path.join(self.config['resume_from'], 'checkpoints')
-            state_dict = torch.load(os.path.join(checkpoints_folder, 'model.pth'))
+            checkpoints_folder = os.path.join(
+                self.config['resume_from'], 'checkpoints')
+            state_dict = torch.load(os.path.join(
+                checkpoints_folder, 'model.pth'))
             model.load_state_dict(state_dict)
             print("Loaded pre-trained model with success.")
         except FileNotFoundError:
@@ -188,7 +205,8 @@ class iMolCLR:
                 # normalize projection feature vectors
                 z1_global = F.normalize(z1_global, dim=1)
                 z2_global = F.normalize(z2_global, dim=1)
-                loss_global = self.weighted_nt_xent_criterion(z1_global, z2_global, mols)
+                loss_global = self.weighted_nt_xent_criterion(
+                    z1_global, z2_global, mols)
 
                 # normalize projection feature vectors
                 z1_sub = F.normalize(z1_sub, dim=1)
@@ -208,7 +226,8 @@ class iMolCLR:
 
 
 def main():
-    config = yaml.load(open("../config/config.yaml", "r"), Loader=yaml.FullLoader)
+    config = yaml.load(open("./config/config.yaml", "r"),
+                       Loader=yaml.FullLoader)
     print(config)
     dataset = MoleculeDatasetWrapper(config['batch_size'], **config['dataset'])
 
