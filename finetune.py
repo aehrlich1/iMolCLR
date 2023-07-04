@@ -17,7 +17,7 @@ from models.ginet_finetune import GINet
 def _save_config_file(log_dir, config):
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
-        with open(os.path.join(log_dir, './config/config_finetune.yaml'), 'w') as config_file:
+        with open(os.path.join(log_dir, 'config_finetune.yaml'), 'w') as config_file:
             yaml.dump(config, config_file)
 
 
