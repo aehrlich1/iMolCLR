@@ -11,11 +11,10 @@
 #SBATCH --mem=15G
 
 MAIN_FILE="/home/mescalin/aehrlich/src/iMolCLR/finetune.py"
-OUTPUT_DIR="/scr/titan/aehrlich/imolclr_out/"
 DATA_DIR="/scr/titan/aehrlich/data/"
 CONDA_ENV_NAME="imolclr"
 
 source /home/mescalin/aehrlich/.bashrc
 conda activate $CONDA_ENV_NAME
 
-python $MAIN_FILE -o $OUTPUT_DIR
+python $MAIN_FILE $DATA_DIR
