@@ -238,4 +238,10 @@ def main():
 
 
 if __name__ == "__main__":
+    global DATA_DIR
+    if (len(sys.argv) > 1):
+        print('Argument List:', str(sys.argv))
+        DATA_DIR = str(sys.argv[1])
+    else:
+        DATA_DIR = './data/'
     main()
