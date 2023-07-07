@@ -16,16 +16,6 @@ from models.ginet import GINet
 from utils.nt_xent import NTXentLoss
 from utils.weighted_nt_xent import WeightedNTXentLoss
 
-apex_support = False
-try:
-    sys.path.append('./apex')
-    from apex import amp
-
-    apex_support = True
-except:
-    print("Please install apex for mixed precision training from: https://github.com/NVIDIA/apex")
-    apex_support = False
-
 
 def read_smiles(data_path):
     smiles_data = []
@@ -68,12 +58,7 @@ class iMolCLR:
         scheduler = CosineAnnealingLR(
             optimizer, T_max=self.config['epochs'] - 9, eta_min=0, last_epoch=-1)
 
-        if apex_support and self.config['fp16_precision']:
-            model, optimizer = amp.initialize(model, optimizer,
-                                              opt_level='O2',
-                                              keep_batchnorm_fp32=True)
-
-        model_checkpoints_folder = os.path.join(
+        model_checkpoints_folder: str = os.path.join(
             self.writer.log_dir, 'checkpoints')
 
         self._save_config_file(model_checkpoints_folder)
@@ -112,11 +97,7 @@ class iMolCLR:
                     self._log_loss(scheduler, n_iter, epoch_counter,
                                    bn, loss_global, loss_sub, loss)
 
-                if apex_support and self.config['fp16_precision']:
-                    with amp.scale_loss(loss, optimizer) as scaled_loss:
-                        scaled_loss.backward()
-                else:
-                    loss.backward()
+                loss.backward()
 
                 optimizer.step()
                 n_iter += 1
@@ -145,7 +126,7 @@ class iMolCLR:
 
         return device
 
-    def _save_config_file(model_checkpoints_folder):
+    def _save_config_file(self, model_checkpoints_folder: str):
         if not os.path.exists(model_checkpoints_folder):
             os.makedirs(model_checkpoints_folder)
             shutil.copy('./config/config.yaml',
