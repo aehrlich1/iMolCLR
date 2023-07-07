@@ -5,6 +5,7 @@ from datetime import datetime
 import csv
 import sys
 import numpy as np
+import pprint
 import torch
 import torch.nn.functional as F
 import yaml
@@ -222,7 +223,7 @@ class iMolCLR:
 def main():
     config = yaml.load(open("./config/config.yaml", "r"),
                        Loader=yaml.FullLoader)
-    print(config)
+    pprint.pprint(config)
     dataset = MoleculeDatasetWrapper(
         config['batch_size'], **config['dataset'], data_dir=DATA_DIR)
 
