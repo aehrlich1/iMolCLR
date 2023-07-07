@@ -2,8 +2,8 @@
 
 #SBATCH --job-name=ae_test
 #SBATCH --time=400:05:0
-#SBATCH --partition=cuda
-#SBATCH --cpus-per-task=8
+#SBATCH --partition=cuda-L
+#SBATCH --cpus-per-task=24
 #SBATCH --mail-user=anatol.ehrlich@gmail.com
 #SBATCH --mail-type=END,FAIL
 #SBATCH --output=/scr/titan/aehrlich/slurm_out/ae_slurm.%A.out
