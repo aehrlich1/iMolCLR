@@ -19,7 +19,7 @@ model:
   pool: mean                              # readout pooling (i.e., mean/max/add)
 
 dataset:
-  num_workers: 1                          # dataloader number of workers
+  num_workers: 4                          # dataloader number of workers
   valid_size: 0.05                        # ratio of validation data
   data_file: pubchem-10m-clean.txt        # file of pre-training data
 
