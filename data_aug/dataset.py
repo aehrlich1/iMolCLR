@@ -96,7 +96,8 @@ def get_fragment_indices(mol):
 
     BRICS_bonds = list(FindBRICSBonds(mol))
     break_bonds = [b[0] for b in BRICS_bonds]
-    break_atoms = [b[0][0] for b in BRICS_bonds] + [b[0][1] for b in BRICS_bonds]
+    break_atoms = [b[0][0] for b in BRICS_bonds] + [b[0][1]
+                                                    for b in BRICS_bonds]
     molGraph.remove_edges_from(break_bonds)
 
     indices = []
@@ -226,7 +227,8 @@ def _mask_edges_idx(mol: Mol) -> list[int]:
     num_bonds: int = mol.GetNumBonds()
     num_mask_edges: int = max([0, math.floor(0.25 * num_bonds)])
     masked_edges_single = random.sample(list(range(num_bonds)), num_mask_edges)
-    masked_edges: list[int] = [2 * i for i in masked_edges_single] + [2 * i + 1 for i in masked_edges_single]
+    masked_edges: list[int] = [
+        2 * i for i in masked_edges_single] + [2 * i + 1 for i in masked_edges_single]
     return masked_edges
 
 
@@ -258,8 +260,10 @@ def augment_molecule(mol: Mol) -> torch_geometric.data.Data:
 
     num_masked_edges: int = max([0, math.floor(0.25 * num_bonds)])
     edge_index, edge_attr = get_graph(mol)
-    augmented_edge_index = torch.zeros((2, 2 * (num_bonds - num_masked_edges)), dtype=torch.long)
-    edge_attr_i = torch.zeros((2 * (num_bonds - num_masked_edges), 2), dtype=torch.long)
+    augmented_edge_index = torch.zeros(
+        (2, 2 * (num_bonds - num_masked_edges)), dtype=torch.long)
+    edge_attr_i = torch.zeros(
+        (2 * (num_bonds - num_masked_edges), 2), dtype=torch.long)
     count = 0
 
     for bond_idx in range(2 * num_bonds):
@@ -268,7 +272,8 @@ def augment_molecule(mol: Mol) -> torch_geometric.data.Data:
             edge_attr_i[count, :] = edge_attr[bond_idx, :]
             count += 1
 
-    pyg_graph = Data(x=augmented_molecule, edge_index=edge_index, edge_attr=edge_attr)
+    pyg_graph = Data(x=augmented_molecule,
+                     edge_index=edge_index, edge_attr=edge_attr)
     return pyg_graph
 
 
@@ -291,8 +296,8 @@ class MoleculeDataset(Dataset):
 
 
 class MoleculeDatasetWrapper:
-    def __init__(self, batch_size: int, num_workers: int, valid_size: float, data_path: str):
-        self.data_path: str = data_path
+    def __init__(self, batch_size: int, num_workers: int, valid_size: float, data_file: str, data_dir: str):
+        self.data_path: str = data_dir + data_file
         self.batch_size: int = batch_size
         self.num_workers: int = num_workers
         self.valid_size: float = valid_size

@@ -231,7 +231,10 @@ def main():
     config = yaml.load(open("./config/config.yaml", "r"),
                        Loader=yaml.FullLoader)
     print(config)
-    dataset = MoleculeDatasetWrapper(config['batch_size'], **config['dataset'])
+    # pass to MoleculeDatasetWrapper: data_path
+    # remove data_path from config.yml
+    dataset = MoleculeDatasetWrapper(
+        config['batch_size'], **config['dataset'], data_dir=DATA_DIR)
 
     molclr = iMolCLR(dataset, config)
     molclr.train()
