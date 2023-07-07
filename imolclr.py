@@ -231,8 +231,6 @@ def main():
     config = yaml.load(open("./config/config.yaml", "r"),
                        Loader=yaml.FullLoader)
     print(config)
-    # pass to MoleculeDatasetWrapper: data_path
-    # remove data_path from config.yml
     dataset = MoleculeDatasetWrapper(
         config['batch_size'], **config['dataset'], data_dir=DATA_DIR)
 
