@@ -5,4 +5,4 @@
 # 2. git pull
 # 3. execute submit_job.slrm: sbatch submit_job.slrm
 
-ssh aehrlich@titan.tbi.univie.ac.at 'cd src/iMolCLR; git pull; ./submission/submit_imolclr.slrm'
+ssh aehrlich@titan.tbi.univie.ac.at 'cd src/iMolCLR; git pull; sbatch ./submission/submit_imolclr.slrm'
