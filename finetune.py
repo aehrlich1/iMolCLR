@@ -4,6 +4,7 @@ from datetime import datetime
 
 import numpy as np
 import pandas as pd
+import pprint
 import torch
 import torch.nn.functional as F
 import yaml
@@ -419,7 +420,7 @@ def get_config():
     else:
         raise ValueError('Unspecified dataset!')
 
-    print(config)
+    pprint.pprint(config)
     return config, target_list
 
 
