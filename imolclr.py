@@ -37,13 +37,6 @@ def read_smiles(data_path):
     return smiles_data
 
 
-def _save_config_file(model_checkpoints_folder):
-    if not os.path.exists(model_checkpoints_folder):
-        os.makedirs(model_checkpoints_folder)
-        shutil.copy('./config/config.yaml',
-                    os.path.join(model_checkpoints_folder, 'config.yaml'))
-
-
 class iMolCLR:
     def __init__(self, dataset, config):
         self.config = config
@@ -57,17 +50,6 @@ class iMolCLR:
         self.nt_xent_criterion = NTXentLoss(self.device, **config['loss'])
         self.weighted_nt_xent_criterion = WeightedNTXentLoss(
             self.device, **config['loss'])
-
-    def _get_device(self):
-        # device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        if torch.cuda.is_available() and self.config['gpu'] != 'cpu':
-            device = self.config['gpu']
-            torch.cuda.set_device(device)
-        else:
-            device = 'cpu'
-        print("Running on:", device)
-
-        return device
 
     def train(self):
 
@@ -94,8 +76,7 @@ class iMolCLR:
         model_checkpoints_folder = os.path.join(
             self.writer.log_dir, 'checkpoints')
 
-        # save config file
-        _save_config_file(model_checkpoints_folder)
+        self._save_config_file(model_checkpoints_folder)
 
         n_iter = 0
         valid_n_iter = 0
@@ -128,15 +109,8 @@ class iMolCLR:
                 loss = loss_global + self.config['loss']['lambda_2'] * loss_sub
 
                 if n_iter % self.config['log_every_n_steps'] == 0:
-                    self.writer.add_scalar(
-                        'loss_global', loss_global, global_step=n_iter)
-                    self.writer.add_scalar(
-                        'loss_sub', loss_sub, global_step=n_iter)
-                    self.writer.add_scalar('loss', loss, global_step=n_iter)
-                    self.writer.add_scalar('cosine_lr_decay', scheduler.get_last_lr()[
-                                           0], global_step=n_iter)
-                    print(epoch_counter, bn, loss_global.item(),
-                          loss_sub.item(), loss.item())
+                    self._log_loss(scheduler, n_iter, epoch_counter,
+                                   bn, loss_global, loss_sub, loss)
 
                 if apex_support and self.config['fp16_precision']:
                     with amp.scale_loss(loss, optimizer) as scaled_loss:
@@ -149,32 +123,69 @@ class iMolCLR:
 
             # validate the model if requested
             if epoch_counter % self.config['eval_every_n_epochs'] == 0:
-                valid_loss_global, valid_loss_sub = self._validate(
-                    model, valid_loader)
-                valid_loss = valid_loss_global + 0.5 * valid_loss_sub
-                print(epoch_counter, bn, valid_loss_global,
-                      valid_loss_sub, valid_loss, '(validation)')
-                if valid_loss < best_valid_loss:
-                    # save the model weights
-                    best_valid_loss = valid_loss
-                    torch.save(model.state_dict(), os.path.join(
-                        model_checkpoints_folder, 'model.pth'))
-
-                self.writer.add_scalar(
-                    'valid_loss_global', valid_loss_global, global_step=valid_n_iter)
-                self.writer.add_scalar(
-                    'valid_loss_sub', valid_loss_sub, global_step=valid_n_iter)
-                self.writer.add_scalar(
-                    'valid_loss', valid_loss, global_step=valid_n_iter)
-                valid_n_iter += 1
+                self._validate_model(valid_loader, model, model_checkpoints_folder,
+                                     valid_n_iter, best_valid_loss, epoch_counter, bn)
 
             if (epoch_counter + 1) % 5 == 0:
-                torch.save(model.state_dict(),
-                           os.path.join(model_checkpoints_folder, 'model_{}.pth'.format(str(epoch_counter))))
+                self._save_model(
+                    model, model_checkpoints_folder, epoch_counter)
 
             # warmup for the first 10 epochs
             if epoch_counter >= self.config['warmup'] - 1:
                 scheduler.step()
+
+    def _get_device(self):
+        # device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        if torch.cuda.is_available() and self.config['gpu'] != 'cpu':
+            device = self.config['gpu']
+            torch.cuda.set_device(device)
+        else:
+            device = 'cpu'
+        print("Running on:", device)
+
+        return device
+
+    def _save_config_file(model_checkpoints_folder):
+        if not os.path.exists(model_checkpoints_folder):
+            os.makedirs(model_checkpoints_folder)
+            shutil.copy('./config/config.yaml',
+                        os.path.join(model_checkpoints_folder, 'config.yaml'))
+
+    def _save_model(self, model, model_checkpoints_folder, epoch_counter):
+        torch.save(model.state_dict(),
+                   os.path.join(model_checkpoints_folder, 'model_{}.pth'.format(str(epoch_counter))))
+
+    def _log_loss(self, scheduler, n_iter, epoch_counter, bn, loss_global, loss_sub, loss):
+        self.writer.add_scalar(
+            'loss_global', loss_global, global_step=n_iter)
+        self.writer.add_scalar(
+            'loss_sub', loss_sub, global_step=n_iter)
+        self.writer.add_scalar(
+            'loss', loss, global_step=n_iter)
+        self.writer.add_scalar(
+            'cosine_lr_decay', scheduler.get_last_lr()[0], global_step=n_iter)
+        print(epoch_counter, bn, loss_global.item(),
+              loss_sub.item(), loss.item())
+
+    def _validate_model(self, valid_loader, model, model_checkpoints_folder, valid_n_iter, best_valid_loss, epoch_counter, bn):
+        valid_loss_global, valid_loss_sub = self._validate(
+            model, valid_loader)
+        valid_loss = valid_loss_global + 0.5 * valid_loss_sub
+        print(epoch_counter, bn, valid_loss_global,
+              valid_loss_sub, valid_loss, '(validation)')
+        if valid_loss < best_valid_loss:
+            # save the model weights
+            best_valid_loss = valid_loss
+            torch.save(model.state_dict(), os.path.join(
+                model_checkpoints_folder, 'model.pth'))
+
+        self.writer.add_scalar(
+            'valid_loss_global', valid_loss_global, global_step=valid_n_iter)
+        self.writer.add_scalar(
+            'valid_loss_sub', valid_loss_sub, global_step=valid_n_iter)
+        self.writer.add_scalar(
+            'valid_loss', valid_loss, global_step=valid_n_iter)
+        valid_n_iter += 1
 
     def _load_pre_trained_weights(self, model):
         try:
