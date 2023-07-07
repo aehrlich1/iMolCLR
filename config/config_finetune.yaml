@@ -3,7 +3,7 @@ epochs: 100                     # total number of epochs
 eval_every_n_epochs: 1          # validation frequency
 fine_tune_from: pretrained      # directory of pre-trained model
 log_every_n_steps: 50           # print training log frequency
-gpu: cpu                        # training GPU
+gpu: cuda:0                        # training GPU
 task_name: BBBP                 # name of fine-tuning benchmark, inlcuding
                                 # classifications: BBBP/BACE/ClinTox/Tox21/HIV/SIDER/MUV
                                 # regressions: FreeSolv/ESOL/Lipo/qm7/qm8
