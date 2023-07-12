@@ -91,7 +91,7 @@ class FineTune:
 
         return device
 
-    def _step(self, model, data):
+    def _step(self, model, data) -> float:
         pred = model(data)
 
         if self.config['dataset']['task'] == 'classification':
@@ -105,7 +105,7 @@ class FineTune:
 
         return loss
 
-    def train(self):
+    def train(self) -> tuple[float, float]:
         train_loader, valid_loader, test_loader = self.dataset.get_data_loaders()
 
         self.normalizer = None
@@ -271,7 +271,7 @@ class FineTune:
             print('Validation loss:', valid_loss, 'ROC AUC:', roc_auc)
             return valid_loss, roc_auc
 
-    def _test(self, model, test_loader):
+    def _test(self, model, test_loader) -> tuple[float, float]:
         model_path = os.path.join(self.log_dir, 'model.pth')
         state_dict = torch.load(model_path, map_location=self.device)
         model.load_state_dict(state_dict)
@@ -283,7 +283,7 @@ class FineTune:
         with torch.no_grad():
             model.eval()
 
-            test_loss = 0.0
+            test_loss: float = 0.0
             num_data = 0
             for bn, data in enumerate(test_loader):
                 data = data.to(self.device)
@@ -314,20 +314,21 @@ class FineTune:
         if self.config['dataset']['task'] == 'regression':
             predictions = np.array(predictions)
             labels = np.array(labels)
-            rmse = mean_squared_error(labels, predictions, squared=False)
-            mae = mean_absolute_error(labels, predictions)
+            rmse: float = mean_squared_error(
+                labels, predictions, squared=False)
+            mae: float = mean_absolute_error(labels, predictions)
             print('Test loss:', test_loss, 'RMSE:', rmse, 'MAE:', mae)
             return test_loss, rmse, mae
 
         elif self.config['dataset']['task'] == 'classification':
             predictions = np.array(predictions)
             labels = np.array(labels)
-            roc_auc = roc_auc_score(labels, predictions[:, 1])
+            roc_auc: float = roc_auc_score(labels, predictions[:, 1])
             print('Test loss:', test_loss, 'ROC AUC:', roc_auc)
             return test_loss, roc_auc
 
 
-def run(config):
+def run(config) -> tuple[float, float]:
     dataset = MolTestDatasetWrapper(config['batch_size'], **config['dataset'])
     fine_tune = FineTune(dataset, config)
     return fine_tune.train()

@@ -283,9 +283,9 @@ class MoleculeDataset(Dataset):
 
     def __getitem__(self, idx):
         mol: Mol = Chem.MolFromSmiles(self.smiles_data[idx])
-        data_i = augment_molecule(mol)
-        data_j = augment_molecule(mol)
-        num_atoms = mol.GetNumAtoms()
+        data_i: torch_geometric.data.Data = augment_molecule(mol)
+        data_j: torch_geometric.data.Data = augment_molecule(mol)
+        num_atoms: int = mol.GetNumAtoms()
         frag_mols = get_fragments(mol)
         frag_indices = get_fragment_indices(mol)
 
