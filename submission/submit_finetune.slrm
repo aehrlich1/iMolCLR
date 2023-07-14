@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --job-name=ae_test
+#SBATCH --job-name=ae_finetune
 #SBATCH --time=400:05:0
 #SBATCH --partition=cuda
 #SBATCH --cpus-per-task=8
