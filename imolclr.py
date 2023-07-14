@@ -29,7 +29,7 @@ def read_smiles(data_path):
 
 
 class iMolCLR:
-    def __init__(self, dataset, config):
+    def __init__(self, dataset: MoleculeDatasetWrapper, config):
         self.config = config
         self.device = self._get_device()
 
@@ -37,7 +37,7 @@ class iMolCLR:
         log_dir = os.path.join('./runs', dir_name)
         self.writer = SummaryWriter(log_dir=log_dir)
 
-        self.dataset = dataset
+        self.dataset: MoleculeDatasetWrapper = dataset
         self.nt_xent_criterion = NTXentLoss(self.device, **config['loss'])
         self.weighted_nt_xent_criterion = WeightedNTXentLoss(
             self.device, **config['loss'])

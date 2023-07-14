@@ -49,34 +49,9 @@ class timeout:
     def __exit__(self, type, value, traceback):
         signal.alarm(0)
 
-
-def collate_fn(batch):
-    gis, gjs, mols, atom_nums, frag_mols, frag_indices = zip(*batch)
-
-    frag_mols = [j for i in frag_mols for j in i]
-
-    # gis = Batch().from_data_list(gis)
-    # gjs = Batch().from_data_list(gjs)
-    gis = Batch.from_data_list(gis)
-    gjs = Batch.from_data_list(gjs)
-
-    gis.motif_batch = torch.zeros(gis.x.size(0), dtype=torch.long)
-    gjs.motif_batch = torch.zeros(gjs.x.size(0), dtype=torch.long)
-
-    curr_indicator = 1
-    curr_num = 0
-    for N, indices in zip(atom_nums, frag_indices):
-        for idx in indices:
-            curr_idx = np.array(list(idx)) + curr_num
-            gis.motif_batch[curr_idx] = curr_indicator
-            gjs.motif_batch[curr_idx] = curr_indicator
-            curr_indicator += 1
-        curr_num += N
-
-    return gis, gjs, mols, frag_mols
-
-
 # TODO: Refactor read_smiles method
+
+
 def read_smiles(data_path) -> list[str]:
     smiles_data = []
     with open(data_path) as csv_file:
@@ -253,38 +228,14 @@ def create_molecule(mol: Mol) -> tuple[torch.Tensor, int, int]:
     return molecule, mol.GetNumAtoms(), mol.GetNumBonds()
 
 
-def augment_molecule(mol: Mol) -> torch_geometric.data.Data:
-    augmented_molecule, num_atoms, num_bonds = create_molecule(mol)
-    masked_nodes, masked_edges = _mask_subgraph_idx(mol)
-    augmented_molecule[masked_nodes, 0] = torch.tensor([ATOM_MASK_CONSTANT])
-
-    num_masked_edges: int = max([0, math.floor(0.25 * num_bonds)])
-    edge_index, edge_attr = get_graph(mol)
-    augmented_edge_index = torch.zeros(
-        (2, 2 * (num_bonds - num_masked_edges)), dtype=torch.long)
-    edge_attr_i = torch.zeros(
-        (2 * (num_bonds - num_masked_edges), 2), dtype=torch.long)
-    count = 0
-
-    for bond_idx in range(2 * num_bonds):
-        if bond_idx not in masked_edges:
-            augmented_edge_index[:, count] = edge_index[:, bond_idx]
-            edge_attr_i[count, :] = edge_attr[bond_idx, :]
-            count += 1
-
-    pyg_graph = Data(x=augmented_molecule,
-                     edge_index=edge_index, edge_attr=edge_attr)
-    return pyg_graph
-
-
 class MoleculeDataset(Dataset):
     def __init__(self, smiles_data):
         self.smiles_data = smiles_data
 
     def __getitem__(self, idx):
         mol: Mol = Chem.MolFromSmiles(self.smiles_data[idx])
-        data_i: torch_geometric.data.Data = augment_molecule(mol)
-        data_j: torch_geometric.data.Data = augment_molecule(mol)
+        data_i: torch_geometric.data.Data = self._augment_mol(mol)
+        data_j: torch_geometric.data.Data = self._augment_mol(mol)
         num_atoms: int = mol.GetNumAtoms()
         frag_mols = get_fragments(mol)
         frag_indices = get_fragment_indices(mol)
@@ -293,6 +244,30 @@ class MoleculeDataset(Dataset):
 
     def __len__(self) -> int:
         return len(self.smiles_data)
+
+    def _augment_mol(self, mol: Mol) -> torch_geometric.data.Data:
+        augmented_molecule, num_atoms, num_bonds = create_molecule(mol)
+        masked_nodes, masked_edges = _mask_subgraph_idx(mol)
+        augmented_molecule[masked_nodes, 0] = torch.tensor(
+            [ATOM_MASK_CONSTANT])
+
+        num_masked_edges: int = max([0, math.floor(0.25 * num_bonds)])
+        edge_index, edge_attr = get_graph(mol)
+        augmented_edge_index = torch.zeros(
+            (2, 2 * (num_bonds - num_masked_edges)), dtype=torch.long)
+        edge_attr_i = torch.zeros(
+            (2 * (num_bonds - num_masked_edges), 2), dtype=torch.long)
+        count = 0
+
+        for bond_idx in range(2 * num_bonds):
+            if bond_idx not in masked_edges:
+                augmented_edge_index[:, count] = edge_index[:, bond_idx]
+                edge_attr_i[count, :] = edge_attr[bond_idx, :]
+                count += 1
+
+        pyg_graph = Data(x=augmented_molecule,
+                         edge_index=edge_index, edge_attr=edge_attr)
+        return pyg_graph
 
 
 class MoleculeDatasetWrapper:
@@ -303,6 +278,51 @@ class MoleculeDatasetWrapper:
         self.valid_size: float = valid_size
 
     def get_data_loaders(self) -> tuple[DataLoader, DataLoader]:
+        valid_smiles, train_smiles = self._shuffle_smiles()
+
+        print(f"Training set size: {len(train_smiles)}")
+        print(f"Validation set size: {len(valid_smiles)}")
+
+        train_dataset: MoleculeDataset = MoleculeDataset(train_smiles)
+        valid_dataset: MoleculeDataset = MoleculeDataset(valid_smiles)
+
+        train_loader: DataLoader = DataLoader(
+            train_dataset, batch_size=self.batch_size, collate_fn=self._collate_fn,
+            num_workers=self.num_workers, drop_last=True, shuffle=True
+        )
+        valid_loader: DataLoader = DataLoader(
+            valid_dataset, batch_size=self.batch_size, collate_fn=self._collate_fn,
+            num_workers=self.num_workers, drop_last=True
+        )
+
+        return train_loader, valid_loader
+
+    def _collate_fn(self, batch):
+        gis, gjs, mols, atom_nums, frag_mols, frag_indices = zip(*batch)
+
+        frag_mols = [j for i in frag_mols for j in i]
+
+        # gis = Batch().from_data_list(gis)
+        # gjs = Batch().from_data_list(gjs)
+        gis = Batch.from_data_list(gis)
+        gjs = Batch.from_data_list(gjs)
+
+        gis.motif_batch = torch.zeros(gis.x.size(0), dtype=torch.long)
+        gjs.motif_batch = torch.zeros(gjs.x.size(0), dtype=torch.long)
+
+        curr_indicator = 1
+        curr_num = 0
+        for N, indices in zip(atom_nums, frag_indices):
+            for idx in indices:
+                curr_idx = np.array(list(idx)) + curr_num
+                gis.motif_batch[curr_idx] = curr_indicator
+                gjs.motif_batch[curr_idx] = curr_indicator
+                curr_indicator += 1
+            curr_num += N
+
+        return gis, gjs, mols, frag_mols
+
+    def _shuffle_smiles(self):
         smiles_data: list[str] = read_smiles(self.data_path)
         smiles_data = shuffle(smiles_data, random_state=0)
 
@@ -312,20 +332,4 @@ class MoleculeDatasetWrapper:
         valid_smiles: list[str] = smiles_data[:split]
         train_smiles: list[str] = smiles_data[split:]
         del smiles_data
-
-        print(f"Training set size: {len(train_smiles)}")
-        print(f"Validation set size: {len(valid_smiles)}")
-
-        train_dataset: MoleculeDataset = MoleculeDataset(train_smiles)
-        valid_dataset: MoleculeDataset = MoleculeDataset(valid_smiles)
-
-        train_loader: DataLoader = DataLoader(
-            train_dataset, batch_size=self.batch_size, collate_fn=collate_fn,
-            num_workers=self.num_workers, drop_last=True, shuffle=True
-        )
-        valid_loader: DataLoader = DataLoader(
-            valid_dataset, batch_size=self.batch_size, collate_fn=collate_fn,
-            num_workers=self.num_workers, drop_last=True
-        )
-
-        return train_loader, valid_loader
+        return valid_smiles, train_smiles
