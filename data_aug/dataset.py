@@ -49,8 +49,6 @@ class timeout:
     def __exit__(self, type, value, traceback):
         signal.alarm(0)
 
-# TODO: Refactor read_smiles method
-
 
 def read_smiles(data_path) -> list[str]:
     smiles_data = []
@@ -133,6 +131,7 @@ def get_fragments(mol):
 
 # TODO: there must be a package that does this for you
 # e.g https://anaconda.org/conda-forge/openbabel
+# Also unclear as to get GetBondDir does and why we need it
 def get_graph(mol: Mol) -> tuple[torch.Tensor, torch.Tensor]:
     """
     Return a tuple consisting of an edge_index and edge attributes.
@@ -164,6 +163,7 @@ def get_graph(mol: Mol) -> tuple[torch.Tensor, torch.Tensor]:
     :param mol:
     :return:
     """
+
     row, col, edge_feat = [], [], []
     for bond in mol.GetBonds():
         start = bond.GetBeginAtomIdx()
@@ -185,35 +185,17 @@ def get_graph(mol: Mol) -> tuple[torch.Tensor, torch.Tensor]:
     return edge_index, edge_attr
 
 
-def _mask_subgraph_idx(mol: Mol) -> tuple[list[int], list[int]]:
-    masked_nodes = _mask_nodes_idx(mol)
-    masked_edges = _mask_edges_idx(mol)
-    return masked_nodes, masked_edges
-
-
-def _mask_nodes_idx(mol: Mol) -> list[int]:
-    num_atoms: int = mol.GetNumAtoms()
-    num_mask_nodes: int = max([1, math.floor(0.25 * num_atoms)])
-    masked_nodes = random.sample(list(range(num_atoms)), num_mask_nodes)
-    return masked_nodes
-
-
-def _mask_edges_idx(mol: Mol) -> list[int]:
-    num_bonds: int = mol.GetNumBonds()
-    num_mask_edges: int = max([0, math.floor(0.25 * num_bonds)])
-    masked_edges_single = random.sample(list(range(num_bonds)), num_mask_edges)
-    masked_edges: list[int] = [
-        2 * i for i in masked_edges_single] + [2 * i + 1 for i in masked_edges_single]
-    return masked_edges
-
-
-def create_molecule(mol: Mol) -> tuple[torch.Tensor, int, int]:
+def get_node_feature_matrix(mol: Mol) -> torch.Tensor:
     """
-    Create a molecule from a Mol
+    Generate the node features (atom type, chirality) for a given mol.
 
-    :param mol:
-    :return:
+    Args:
+        mol (Mol): rdkit.Chem.rdchem.Mol
+
+    Returns:
+        torch.Tensor: A tensor of shape: (NUM_ATOMS, 2). The first column contains the atom types, the second contains the atom chirality.
     """
+
     atom_types: list[int] = []
     chirality_idx: list[int] = []
 
@@ -221,11 +203,11 @@ def create_molecule(mol: Mol) -> tuple[torch.Tensor, int, int]:
         atom_types.append(atom.GetAtomicNum())
         chirality_idx.append(int(atom.GetChiralTag()))
 
-    x_atoms = torch.tensor(atom_types, dtype=torch.long).view(-1, 1)
-    x_bonds = torch.tensor(chirality_idx, dtype=torch.long).view(-1, 1)
-    molecule = torch.cat([x_atoms, x_bonds], dim=-1)
+    atoms = torch.tensor(atom_types, dtype=torch.long).view(-1, 1)
+    bonds = torch.tensor(chirality_idx, dtype=torch.long).view(-1, 1)
+    node_features = torch.cat([atoms, bonds], dim=-1)
 
-    return molecule, mol.GetNumAtoms(), mol.GetNumBonds()
+    return node_features
 
 
 class MoleculeDataset(Dataset):
@@ -246,28 +228,76 @@ class MoleculeDataset(Dataset):
         return len(self.smiles_data)
 
     def _augment_mol(self, mol: Mol) -> torch_geometric.data.Data:
-        augmented_molecule, num_atoms, num_bonds = create_molecule(mol)
-        masked_nodes, masked_edges = _mask_subgraph_idx(mol)
-        augmented_molecule[masked_nodes, 0] = torch.tensor(
+        """
+        Perform a two step augmentation on the molecule:
+        1. Mask randomly 25% of the nodes to an arbitrary integer
+        ATOM_MASK_CONSTANT.
+        2. Mask randomly 25% of the edges by removing them.
+
+        Parameters
+        ----------
+        mol : Mol
+            The molecule to be augmented.
+
+        Returns
+        -------
+        torch_geometric.data.Data
+            The augmented molecule represented as a graph.
+        """
+
+        node_feature_matrix: torch.Tensor = get_node_feature_matrix(mol)
+        self._mask_nodes(node_feature_matrix)
+
+        edge_index_masked, edge_attr_masked = get_graph(mol)
+        edge_index_masked, edge_attr_masked = self._mask_edges(
+            edge_index_masked, edge_attr_masked)
+
+        pyg_graph = Data(x=node_feature_matrix,
+                         edge_index=edge_index_masked, edge_attr=edge_attr_masked)
+        return pyg_graph
+
+    def _mask_nodes(self, node_feature_matrix: torch.Tensor) -> None:
+        """
+        Performs a random masking of 25% of the nodes in the provided feature matrix.
+        The masking process replaces the atom number with a predefined constant:
+        ATOM_MASK_CONSTANT.
+
+        Parameters
+        ----------
+        node_feature_matrix : torch.Tensor
+            Dim: (NUM_BONDS, 2) The first column contains the atoms types.
+            The second columns contains information about the chirality for that atom.
+        """
+
+        num_atoms: int = node_feature_matrix.shape[0]
+        num_mask_nodes: int = max([1, math.floor(0.25 * num_atoms)])
+        masked_nodes = random.sample(list(range(num_atoms)), num_mask_nodes)
+        node_feature_matrix[masked_nodes, 0] = torch.tensor(
             [ATOM_MASK_CONSTANT])
 
-        num_masked_edges: int = max([0, math.floor(0.25 * num_bonds)])
-        edge_index, edge_attr = get_graph(mol)
-        augmented_edge_index = torch.zeros(
-            (2, 2 * (num_bonds - num_masked_edges)), dtype=torch.long)
-        edge_attr_i = torch.zeros(
-            (2 * (num_bonds - num_masked_edges), 2), dtype=torch.long)
-        count = 0
+    def _mask_edges(self, edge_index, edge_attr) -> tuple[torch.Tensor, torch.Tensor]:
+        """
+        Performs a bond deletion on the provided edge_index (edge_set) and edge_attr.
 
-        for bond_idx in range(2 * num_bonds):
-            if bond_idx not in masked_edges:
-                augmented_edge_index[:, count] = edge_index[:, bond_idx]
-                edge_attr_i[count, :] = edge_attr[bond_idx, :]
-                count += 1
+        Args:
+            edge_index (_type_): _description_
+            edge_attr (_type_): _description_
+        """
 
-        pyg_graph = Data(x=augmented_molecule,
-                         edge_index=edge_index, edge_attr=edge_attr)
-        return pyg_graph
+        num_bonds: int = int(edge_index.shape[1]/2)
+        num_masked_bonds: int = max([0, math.floor(0.25 * num_bonds)])
+
+        rng = np.random.default_rng()
+        bonds_to_mask: np.array = rng.choice(
+            num_bonds, size=num_masked_bonds, replace=False)
+        edges_to_mask: np.array = np.concatenate(
+            [2 * bonds_to_mask, 2 * bonds_to_mask + 1])
+        edges_to_mask.sort()
+
+        edge_index = np.delete(edge_index, edges_to_mask, 1)
+        edge_attr = np.delete(edge_attr, edges_to_mask, 0)
+
+        return edge_index, edge_attr
 
 
 class MoleculeDatasetWrapper:

@@ -32,12 +32,16 @@ class TestDatasetMethods(unittest.TestCase):
         n: int = molecule_dataset[0][3]
         self.assertEqual(13, n)
 
+    def test_molecule_dataset_getitem_2(self):
+        smiles_data: list = [self.L_alanine_smiles]
+        molecule_dataset = MoleculeDataset(smiles_data)
+        n: int = molecule_dataset[0]
+        # self.assertEqual(13, n)
+
     def test_get_graph(self):
-        smiles_data = read_smiles('./data/test_pubchem-100-clean.txt')
-        smiles_aspirin = smiles_data[0]
-        mol = Chem.MolFromSmiles(smiles_aspirin)
-        edge_set, edge_attr = get_graph(mol)
-        self.assertTrue(len(edge_set), 13*2)
+        l_alanine_mol = Chem.MolFromSmiles(self.L_alanine_smiles)
+        edge_set, edge_attr = get_graph(l_alanine_mol)
+        self.assertTrue(len(edge_set), 6*2)
         self.assertTrue(torch.all(edge_attr[:, 1] == 0))
 
     def test_get_graph_2(self):
@@ -46,11 +50,9 @@ class TestDatasetMethods(unittest.TestCase):
 
     def test_create_molecule(self):
         l_alanine_mol = Chem.MolFromSmiles(self.L_alanine_smiles)
-        molecule, num_atoms, num_bonds = create_molecule(l_alanine_mol)
+        molecule = get_node_feature_matrix(l_alanine_mol)
         atom_list = molecule.T[0].tolist()
         chirality_list = molecule.T[1].tolist()
-        self.assertEqual(num_atoms, 6)
-        self.assertEqual(num_bonds, 5)
         self.assertEqual(atom_list, [7, 6, 6, 6, 8, 8])
         self.assertEqual(chirality_list, [0, 1, 0, 0, 0, 0])
 
