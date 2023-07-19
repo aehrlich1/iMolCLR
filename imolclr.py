@@ -18,16 +18,6 @@ from utils.nt_xent import NTXentLoss
 from utils.weighted_nt_xent import WeightedNTXentLoss
 
 
-def read_smiles(data_path):
-    smiles_data = []
-    with open(data_path) as csv_file:
-        csv_reader = csv.reader(csv_file, delimiter=',')
-        for i, row in enumerate(csv_reader):
-            smiles = row[-1]
-            smiles_data.append(smiles)
-    return smiles_data
-
-
 class iMolCLR:
     def __init__(self, dataset: MoleculeDatasetWrapper, config):
         self.config = config

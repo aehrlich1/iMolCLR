@@ -142,7 +142,8 @@ def get_graph(mol: Mol) -> tuple[torch.Tensor, torch.Tensor]:
     [[row 1,
      row 2]]
 
-    Example:
+    Example
+    ----------
     Given the molecule propane with the following graph:
 
     C(0)-C(1)-C(2)
@@ -158,10 +159,6 @@ def get_graph(mol: Mol) -> tuple[torch.Tensor, torch.Tensor]:
     copied and flipped.
 
     The dimension of edge_attr is: (2E, 2).
-
-
-    :param mol:
-    :return:
     """
 
     row, col, edge_feat = [], [], []
@@ -193,7 +190,8 @@ def get_node_feature_matrix(mol: Mol) -> torch.Tensor:
         mol (Mol): rdkit.Chem.rdchem.Mol
 
     Returns:
-        torch.Tensor: A tensor of shape: (NUM_ATOMS, 2). The first column contains the atom types, the second contains the atom chirality.
+        torch.Tensor: A tensor of shape: (NUM_ATOMS, 2). The first column
+        contains the atom types, the second contains the atom chirality.
     """
 
     atom_types: list[int] = []
