@@ -19,21 +19,25 @@ from utils.weighted_nt_xent import WeightedNTXentLoss
 
 class iMolCLR:
     def __init__(self, dataset: MoleculeDatasetWrapper, config):
-        self.config = config
-        self.device = self._get_device()
-
         dir_name = datetime.now().strftime('%b%d_%H-%M-%S')
         log_dir = os.path.join('./runs', dir_name)
+
+        self.config = config
+        self.device = self._get_device()
         self.writer = SummaryWriter(log_dir=log_dir)
 
         self.dataset: MoleculeDatasetWrapper = dataset
         self.nt_xent_criterion = NTXentLoss(self.device, **config['loss'])
-        self.weighted_nt_xent_criterion = WeightedNTXentLoss(
-            self.device, **config['loss'])
+        self.weighted_nt_xent_criterion = WeightedNTXentLoss(self.device, **config['loss'])
 
-    def train(self):
+        self.n_iter: int = 0
+        self.valid_n_iter: int = 0
+        self.best_valid_loss: float = np.inf
+        self.epochs: int = config['epochs']
+        self.model_checkpoints_folder: str = os.path.join(self.writer.log_dir, 'checkpoints')
 
-        train_loader, valid_loader = self.dataset.get_data_loaders()
+    def start(self):
+        train_loader, test_loader = self.dataset.get_data_loaders()
 
         model = GINet(**self.config["model"]).to(self.device)
         model = self._load_pre_trained_weights(model)
@@ -45,65 +49,60 @@ class iMolCLR:
         )
         print('Optimizer:', optimizer)
 
-        scheduler = CosineAnnealingLR(
-            optimizer, T_max=self.config['epochs'] - 9, eta_min=0, last_epoch=-1)
+        scheduler = CosineAnnealingLR(optimizer, T_max=self.epochs - 9, eta_min=0, last_epoch=-1)
 
-        model_checkpoints_folder: str = os.path.join(
-            self.writer.log_dir, 'checkpoints')
-
-        self._save_config_file(model_checkpoints_folder)
-
-        n_iter = 0
-        valid_n_iter = 0
-        best_valid_loss = np.inf
+        self._save_config_file(self.model_checkpoints_folder)
 
         torch.cuda.empty_cache()
 
-        for epoch_counter in range(self.config['epochs']):
-            for bn, (g1, g2, mols, frag_mols) in enumerate(train_loader):
-                optimizer.zero_grad()
-
-                g1 = g1.to(self.device)
-                g2 = g2.to(self.device)
-
-                # get the representations and the projections
-                __, z1_global, z1_sub = model(g1)  # [N,C]
-                __, z2_global, z2_sub = model(g2)  # [N,C]
-
-                # normalize projection feature vectors
-                z1_global = F.normalize(z1_global, dim=1)
-                z2_global = F.normalize(z2_global, dim=1)
-                loss_global = self.weighted_nt_xent_criterion(
-                    z1_global, z2_global, mols)
-
-                # normalize projection feature vectors
-                z1_sub = F.normalize(z1_sub, dim=1)
-                z2_sub = F.normalize(z2_sub, dim=1)
-                loss_sub = self.nt_xent_criterion(z1_sub, z2_sub)
-
-                loss = loss_global + self.config['loss']['lambda_2'] * loss_sub
-
-                if n_iter % self.config['log_every_n_steps'] == 0:
-                    self._log_loss(scheduler, n_iter, epoch_counter,
-                                   bn, loss_global, loss_sub, loss)
-
-                loss.backward()
-
-                optimizer.step()
-                n_iter += 1
+        for epoch in range(self.epochs):
+            print(f"Epoch {epoch+1}\n-------------------------------")
+            self._train_loop(train_loader, optimizer, model, scheduler)
+            if (epoch + 1) % 5 == 0:
+                self._save_model(model, self.model_checkpoints_folder, epoch)
 
             # validate the model if requested
-            if epoch_counter % self.config['eval_every_n_epochs'] == 0:
-                self._validate_model(valid_loader, model, model_checkpoints_folder,
-                                     valid_n_iter, best_valid_loss, epoch_counter, bn)
-
-            if (epoch_counter + 1) % 5 == 0:
-                self._save_model(
-                    model, model_checkpoints_folder, epoch_counter)
+            if epoch % self.config['eval_every_n_epochs'] == 0:
+                self._test_model(test_loader, model, self.model_checkpoints_folder, epoch)
 
             # warmup for the first 10 epochs
-            if epoch_counter >= self.config['warmup'] - 1:
+            if epoch >= self.config['warmup'] - 1:
                 scheduler.step()
+
+    def _train_loop(self, train_loader, optimizer, model, scheduler):
+        size: int = len(train_loader.dataset)
+
+        model.train()
+        for batch, (g1, g2, mols, frag_mols) in enumerate(train_loader):
+            optimizer.zero_grad()
+
+            g1 = g1.to(self.device)
+            g2 = g2.to(self.device)
+
+            # get the representations and the projections
+            __, z1_global, z1_sub = model(g1)  # [N,C]
+            __, z2_global, z2_sub = model(g2)  # [N,C]
+
+            # normalize projection feature vectors
+            z1_global = F.normalize(z1_global, dim=1)
+            z2_global = F.normalize(z2_global, dim=1)
+            loss_global = self.weighted_nt_xent_criterion(
+                z1_global, z2_global, mols)
+
+            # normalize projection feature vectors
+            z1_sub = F.normalize(z1_sub, dim=1)
+            z2_sub = F.normalize(z2_sub, dim=1)
+            loss_sub = self.nt_xent_criterion(z1_sub, z2_sub)
+
+            loss = loss_global + self.config['loss']['lambda_2'] * loss_sub
+
+            loss.backward()
+            optimizer.step()
+            self.n_iter += 1
+
+            if self.n_iter % self.config['log_every_n_steps'] == 0:
+                loss, current = loss.item(), (batch + 1) * len(g1)
+                self._log_loss(scheduler, self.n_iter, loss_global, loss_sub, loss, current, size)
 
     def _get_device(self):
         # device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -119,50 +118,35 @@ class iMolCLR:
     def _save_config_file(self, model_checkpoints_folder: str):
         if not os.path.exists(model_checkpoints_folder):
             os.makedirs(model_checkpoints_folder)
-            shutil.copy('./config/config.yaml',
-                        os.path.join(model_checkpoints_folder, 'config.yaml'))
+            shutil.copy('./config/config.yaml', os.path.join(model_checkpoints_folder, 'config.yaml'))
 
     def _save_model(self, model, model_checkpoints_folder, epoch_counter):
-        torch.save(model.state_dict(),
-                   os.path.join(model_checkpoints_folder, 'model_{}.pth'.format(str(epoch_counter))))
+        torch.save(model.state_dict(), os.path.join(model_checkpoints_folder, 'model_{}.pth'.format(str(epoch_counter))))
 
-    def _log_loss(self, scheduler, n_iter, epoch_counter, bn, loss_global, loss_sub, loss):
-        self.writer.add_scalar(
-            'loss_global', loss_global, global_step=n_iter)
-        self.writer.add_scalar(
-            'loss_sub', loss_sub, global_step=n_iter)
-        self.writer.add_scalar(
-            'loss', loss, global_step=n_iter)
-        self.writer.add_scalar(
-            'cosine_lr_decay', scheduler.get_last_lr()[0], global_step=n_iter)
-        print(epoch_counter, bn, loss_global.item(),
-              loss_sub.item(), loss.item())
+    def _log_loss(self, scheduler, n_iter, loss_global, loss_sub, loss, current, size):
+        self.writer.add_scalar('loss_global', loss_global, global_step=n_iter)
+        self.writer.add_scalar('loss_sub', loss_sub, global_step=n_iter)
+        self.writer.add_scalar('loss', loss, global_step=n_iter)
+        self.writer.add_scalar('cosine_lr_decay', scheduler.get_last_lr()[0], global_step=n_iter)
+        print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
 
-    def _validate_model(self, valid_loader, model, model_checkpoints_folder, valid_n_iter, best_valid_loss, epoch_counter, bn):
-        valid_loss_global, valid_loss_sub = self._validate(
-            model, valid_loader)
+    def _test_model(self, valid_loader, model, model_checkpoints_folder, epoch_counter):
+        valid_loss_global, valid_loss_sub = self._test(model, valid_loader)
         valid_loss = valid_loss_global + 0.5 * valid_loss_sub
-        print(epoch_counter, bn, valid_loss_global,
-              valid_loss_sub, valid_loss, '(validation)')
-        if valid_loss < best_valid_loss:
-            best_valid_loss = valid_loss
-            torch.save(model.state_dict(), os.path.join(
-                model_checkpoints_folder, 'model.pth'))
+        print(epoch_counter, valid_loss_global, valid_loss_sub, valid_loss, '(validation)')
+        if valid_loss < self.best_valid_loss:
+            self.best_valid_loss = valid_loss
+            torch.save(model.state_dict(), os.path.join(model_checkpoints_folder, 'model.pth'))
 
-        self.writer.add_scalar(
-            'valid_loss_global', valid_loss_global, global_step=valid_n_iter)
-        self.writer.add_scalar(
-            'valid_loss_sub', valid_loss_sub, global_step=valid_n_iter)
-        self.writer.add_scalar(
-            'valid_loss', valid_loss, global_step=valid_n_iter)
-        valid_n_iter += 1
+        self.writer.add_scalar('valid_loss_global', valid_loss_global, global_step=self.valid_n_iter)
+        self.writer.add_scalar('valid_loss_sub', valid_loss_sub, global_step=self.valid_n_iter)
+        self.writer.add_scalar('valid_loss', valid_loss, global_step=self.valid_n_iter)
+        self.valid_n_iter += 1
 
     def _load_pre_trained_weights(self, model):
         try:
-            checkpoints_folder = os.path.join(
-                self.config['resume_from'], 'checkpoints')
-            state_dict = torch.load(os.path.join(
-                checkpoints_folder, 'model.pth'))
+            checkpoints_folder = os.path.join(self.config['resume_from'], 'checkpoints')
+            state_dict = torch.load(os.path.join(checkpoints_folder, 'model.pth'))
             model.load_state_dict(state_dict)
             print("Loaded pre-trained model with success.")
         except FileNotFoundError:
@@ -170,11 +154,9 @@ class iMolCLR:
 
         return model
 
-    def _validate(self, model, valid_loader):
-        # validation steps
+    def _test(self, model, valid_loader):
+        model.eval()
         with torch.no_grad():
-            model.eval()
-
             valid_loss_global, valid_loss_sub = 0.0, 0.0
             counter = 0
             for bn, (g1, g2, mols, frag_mols) in enumerate(valid_loader):
@@ -209,14 +191,12 @@ class iMolCLR:
 
 
 def main():
-    config = yaml.load(open("./config/config.yaml", "r"),
-                       Loader=yaml.FullLoader)
+    config = yaml.load(open("./config/config.yaml", "r"), Loader=yaml.FullLoader)
     pprint.pprint(config)
-    dataset = MoleculeDatasetWrapper(
-        config['batch_size'], **config['dataset'], data_dir=DATA_DIR)
+    dataset = MoleculeDatasetWrapper(config['batch_size'], **config['dataset'], data_dir=DATA_DIR)
 
     molclr = iMolCLR(dataset, config)
-    molclr.train()
+    molclr.start()
 
 
 if __name__ == "__main__":
