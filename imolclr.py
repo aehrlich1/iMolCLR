@@ -35,23 +35,22 @@ class iMolCLR:
         self.best_valid_loss: float = np.inf
         self.epochs: int = config['epochs']
         self.model_checkpoints_folder: str = os.path.join(self.writer.log_dir, 'checkpoints')
+        self._save_config_file(self.model_checkpoints_folder)
 
     def start(self):
         train_loader, test_loader = self.dataset.get_data_loaders()
 
         model = GINet(**self.config["model"]).to(self.device)
         model = self._load_pre_trained_weights(model)
-        print(model)
+        print(f"\nModel \n-------------------------------\n{model}\n")
 
         optimizer = torch.optim.Adam(
             model.parameters(), self.config['optim']['init_lr'],
             weight_decay=self.config['optim']['weight_decay']
         )
-        print('Optimizer:', optimizer)
+        print(f"Optimizer \n-------------------------------\n{optimizer}\n")
 
         scheduler = CosineAnnealingLR(optimizer, T_max=self.epochs - 9, eta_min=0, last_epoch=-1)
-
-        self._save_config_file(self.model_checkpoints_folder)
 
         torch.cuda.empty_cache()
 
@@ -73,9 +72,7 @@ class iMolCLR:
         size: int = len(train_loader.dataset)
 
         model.train()
-        for batch, (g1, g2, mols, frag_mols) in enumerate(train_loader):
-            optimizer.zero_grad()
-
+        for batch, (g1, g2, mols, _) in enumerate(train_loader):
             g1 = g1.to(self.device)
             g2 = g2.to(self.device)
 
@@ -98,16 +95,17 @@ class iMolCLR:
 
             loss.backward()
             optimizer.step()
+            optimizer.zero_grad()
             self.n_iter += 1
 
             if self.n_iter % self.config['log_every_n_steps'] == 0:
                 loss, current = loss.item(), (batch + 1) * len(g1)
                 self._log_loss(scheduler, self.n_iter, loss_global, loss_sub, loss, current, size)
 
-    def _test_model(self, train_loader, model, model_checkpoints_folder, epoch_counter):
+    def _test_model(self, train_loader, model, model_checkpoints_folder, epoch):
         valid_loss_global, valid_loss_sub = self._test(model, train_loader)
         valid_loss = valid_loss_global + 0.5 * valid_loss_sub
-        print(epoch_counter, valid_loss_global, valid_loss_sub, valid_loss, '(validation)')
+        print(epoch, valid_loss_global, valid_loss_sub, valid_loss, '(validation)')
         if valid_loss < self.best_valid_loss:
             self.best_valid_loss = valid_loss
             torch.save(model.state_dict(), os.path.join(model_checkpoints_folder, 'model.pth'))
@@ -192,7 +190,9 @@ class iMolCLR:
 
 def main():
     config = yaml.load(open("./config/config.yaml", "r"), Loader=yaml.FullLoader)
+    print("\nConfig \n-------------------------------\n")
     pprint.pprint(config)
+    print("\n")
     dataset = MoleculeDatasetWrapper(config['batch_size'], **config['dataset'], data_dir=DATA_DIR)
 
     molclr = iMolCLR(dataset, config)
