@@ -296,24 +296,24 @@ class MoleculeDatasetWrapper:
         self.valid_size: float = valid_size
 
     def get_data_loaders(self) -> tuple[DataLoader, DataLoader]:
-        valid_smiles, train_smiles = self._shuffle_smiles()
+        train_smiles, test_smiles = self._shuffle_smiles()
 
         print(f"Training set size: {len(train_smiles)}")
-        print(f"Validation set size: {len(valid_smiles)}")
+        print(f"Testing set size: {len(test_smiles)}")
 
         train_dataset: MoleculeDataset = MoleculeDataset(train_smiles)
-        valid_dataset: MoleculeDataset = MoleculeDataset(valid_smiles)
+        valid_dataset: MoleculeDataset = MoleculeDataset(test_smiles)
 
         train_loader: DataLoader = DataLoader(
             train_dataset, batch_size=self.batch_size, collate_fn=self._collate_fn,
             num_workers=self.num_workers, drop_last=True, shuffle=True
         )
-        valid_loader: DataLoader = DataLoader(
+        test_loader: DataLoader = DataLoader(
             valid_dataset, batch_size=self.batch_size, collate_fn=self._collate_fn,
             num_workers=self.num_workers, drop_last=True
         )
 
-        return train_loader, valid_loader
+        return train_loader, test_loader
 
     def _collate_fn(self, batch):
         gis, gjs, mols, atom_nums, frag_mols, frag_indices = zip(*batch)
@@ -347,7 +347,7 @@ class MoleculeDatasetWrapper:
         num_train = len(smiles_data)
         split: int = int(np.floor(self.valid_size * num_train))
 
-        valid_smiles: list[str] = smiles_data[:split]
         train_smiles: list[str] = smiles_data[split:]
+        test_smiles: list[str] = smiles_data[:split]
         del smiles_data
-        return valid_smiles, train_smiles
+        return train_smiles, test_smiles
