@@ -1,0 +1,7 @@
+[MESSAGES CONTROL]
+
+disable=
+  missing-class-docstring,
+  missing-function-docstring,
+  c-extension-no-member,
+  too-few-public-methods

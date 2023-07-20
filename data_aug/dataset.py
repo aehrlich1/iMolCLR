@@ -60,78 +60,6 @@ def read_smiles(data_path) -> list[str]:
     return smiles_data
 
 
-def get_fragment_indices(mol):
-    bonds = mol.GetBonds()
-    edges = []
-    for bond in bonds:
-        edges.append([bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()])
-    molGraph = nx.Graph(edges)
-
-    BRICS_bonds = list(FindBRICSBonds(mol))
-    break_bonds = [b[0] for b in BRICS_bonds]
-    break_atoms = [b[0][0] for b in BRICS_bonds] + [b[0][1]
-                                                    for b in BRICS_bonds]
-    molGraph.remove_edges_from(break_bonds)
-
-    indices = []
-    for atom in break_atoms:
-        n = node_connected_component(molGraph, atom)
-        if len(n) > 3 and n not in indices:
-            indices.append(n)
-    indices = set(map(tuple, indices))
-    return indices
-
-
-def get_fragments(mol):
-    try:
-        with timeout(seconds=20):
-
-            ref_indices = get_fragment_indices(mol)
-
-            frags = list(BRICSDecompose(mol, returnMols=True))
-            mol2 = BreakBRICSBonds(mol)
-
-            extra_indices = []
-            for i, atom in enumerate(mol2.GetAtoms()):
-                if atom.GetAtomicNum() == 0:
-                    extra_indices.append(i)
-            extra_indices = set(extra_indices)
-
-            frag_mols = []
-            frag_indices = []
-            for frag in frags:
-                indices = mol2.GetSubstructMatches(frag)
-                # if len(indices) >= 1:
-                #     idx = indices[0]
-                #     idx = set(idx) - extra_indices
-                #     if len(idx) > 3:
-                #         frag_mols.append(frag)
-                #         frag_indices.append(idx)
-                if len(indices) == 1:
-                    idx = indices[0]
-                    idx = set(idx) - extra_indices
-                    if len(idx) > 3:
-                        frag_mols.append(frag)
-                        frag_indices.append(idx)
-                else:
-                    for idx in indices:
-                        idx = set(idx) - extra_indices
-                        if len(idx) > 3:
-                            for ref_idx in ref_indices:
-                                if (tuple(idx) == ref_idx) and (idx not in frag_indices):
-                                    frag_mols.append(frag)
-                                    frag_indices.append(idx)
-
-            return frag_mols, frag_indices
-
-    except:
-        print('timeout!')
-        return [], [set()]
-
-
-# TODO: there must be a package that does this for you
-# e.g https://anaconda.org/conda-forge/openbabel
-# Also unclear as to get GetBondDir does and why we need it
 def get_graph(mol: Mol) -> tuple[torch.Tensor, torch.Tensor]:
     """
     Return a tuple consisting of an edge_index and edge attributes.
@@ -217,8 +145,8 @@ class MoleculeDataset(Dataset):
         data_i: torch_geometric.data.Data = self._augment_mol(mol)
         data_j: torch_geometric.data.Data = self._augment_mol(mol)
         num_atoms: int = mol.GetNumAtoms()
-        frag_mols = get_fragments(mol)
-        frag_indices = get_fragment_indices(mol)
+        frag_mols = self._get_fragments(mol)
+        frag_indices = self._get_fragment_indices(mol)
 
         return data_i, data_j, mol, num_atoms, frag_mols, frag_indices
 
@@ -296,6 +224,68 @@ class MoleculeDataset(Dataset):
         edge_attr = np.delete(edge_attr, edges_to_mask, 0)
 
         return edge_index, edge_attr
+
+    def _get_fragments(self, mol):
+        try:
+            with timeout(seconds=20):
+
+                ref_indices = self._get_fragment_indices(mol)
+
+                frags = list(BRICSDecompose(mol, returnMols=True))
+                mol2 = BreakBRICSBonds(mol)
+
+                extra_indices = []
+                for i, atom in enumerate(mol2.GetAtoms()):
+                    if atom.GetAtomicNum() == 0:
+                        extra_indices.append(i)
+                extra_indices = set(extra_indices)
+
+                frag_mols = []
+                frag_indices = []
+                for frag in frags:
+                    indices = mol2.GetSubstructMatches(frag)
+                    # if len(indices) >= 1:
+                    if len(indices) == 1:
+                        idx = indices[0]
+                        idx = set(idx) - extra_indices
+                        if len(idx) > 3:
+                            frag_mols.append(frag)
+                            frag_indices.append(idx)
+                    else:
+                        for idx in indices:
+                            idx = set(idx) - extra_indices
+                            if len(idx) > 3:
+                                for ref_idx in ref_indices:
+                                    if (tuple(idx) == ref_idx) and (idx not in frag_indices):
+                                        frag_mols.append(frag)
+                                        frag_indices.append(idx)
+
+                return frag_mols, frag_indices
+
+        except:
+            print('timeout!')
+            return [], [set()]
+
+    def _get_fragment_indices(self, mol):
+        bonds = mol.GetBonds()
+        edges = []
+        for bond in bonds:
+            edges.append([bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()])
+        molGraph = nx.Graph(edges)
+
+        BRICS_bonds = list(FindBRICSBonds(mol))
+        break_bonds = [b[0] for b in BRICS_bonds]
+        break_atoms = [b[0][0] for b in BRICS_bonds] + [b[0][1]
+                                                        for b in BRICS_bonds]
+        molGraph.remove_edges_from(break_bonds)
+
+        indices = []
+        for atom in break_atoms:
+            n = node_connected_component(molGraph, atom)
+            if len(n) > 3 and n not in indices:
+                indices.append(n)
+        indices = set(map(tuple, indices))
+        return indices
 
 
 class MoleculeDatasetWrapper:

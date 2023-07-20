@@ -2,10 +2,9 @@ import os
 import shutil
 from datetime import datetime
 
-import csv
 import sys
-import numpy as np
 import pprint
+import numpy as np
 import torch
 import torch.nn.functional as F
 import yaml
@@ -146,7 +145,6 @@ class iMolCLR:
         print(epoch_counter, bn, valid_loss_global,
               valid_loss_sub, valid_loss, '(validation)')
         if valid_loss < best_valid_loss:
-            # save the model weights
             best_valid_loss = valid_loss
             torch.save(model.state_dict(), os.path.join(
                 model_checkpoints_folder, 'model.pth'))
