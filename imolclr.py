@@ -122,7 +122,7 @@ class iMolCLR:
         with torch.no_grad():
             valid_loss_global, valid_loss_sub = 0.0, 0.0
             counter = 0
-            for bn, (g1, g2, mols, frag_mols) in enumerate(valid_loader):
+            for g1, g2, mols, frag_mols in valid_loader:
                 g1 = g1.to(self.device)
                 g2 = g2.to(self.device)
 
@@ -201,7 +201,7 @@ def main():
 
 if __name__ == "__main__":
     global DATA_DIR
-    if len(sys.argv > 1):
+    if len(sys.argv) > 1:
         print('Argument List:', str(sys.argv))
         DATA_DIR = str(sys.argv[1])
     else:
