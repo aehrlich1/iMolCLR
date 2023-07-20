@@ -104,34 +104,8 @@ class iMolCLR:
                 loss, current = loss.item(), (batch + 1) * len(g1)
                 self._log_loss(scheduler, self.n_iter, loss_global, loss_sub, loss, current, size)
 
-    def _get_device(self):
-        # device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        if torch.cuda.is_available() and self.config['gpu'] != 'cpu':
-            device = self.config['gpu']
-            torch.cuda.set_device(device)
-        else:
-            device = 'cpu'
-        print("Running on:", device)
-
-        return device
-
-    def _save_config_file(self, model_checkpoints_folder: str):
-        if not os.path.exists(model_checkpoints_folder):
-            os.makedirs(model_checkpoints_folder)
-            shutil.copy('./config/config.yaml', os.path.join(model_checkpoints_folder, 'config.yaml'))
-
-    def _save_model(self, model, model_checkpoints_folder, epoch_counter):
-        torch.save(model.state_dict(), os.path.join(model_checkpoints_folder, 'model_{}.pth'.format(str(epoch_counter))))
-
-    def _log_loss(self, scheduler, n_iter, loss_global, loss_sub, loss, current, size):
-        self.writer.add_scalar('loss_global', loss_global, global_step=n_iter)
-        self.writer.add_scalar('loss_sub', loss_sub, global_step=n_iter)
-        self.writer.add_scalar('loss', loss, global_step=n_iter)
-        self.writer.add_scalar('cosine_lr_decay', scheduler.get_last_lr()[0], global_step=n_iter)
-        print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
-
-    def _test_model(self, valid_loader, model, model_checkpoints_folder, epoch_counter):
-        valid_loss_global, valid_loss_sub = self._test(model, valid_loader)
+    def _test_model(self, train_loader, model, model_checkpoints_folder, epoch_counter):
+        valid_loss_global, valid_loss_sub = self._test(model, train_loader)
         valid_loss = valid_loss_global + 0.5 * valid_loss_sub
         print(epoch_counter, valid_loss_global, valid_loss_sub, valid_loss, '(validation)')
         if valid_loss < self.best_valid_loss:
@@ -142,17 +116,6 @@ class iMolCLR:
         self.writer.add_scalar('valid_loss_sub', valid_loss_sub, global_step=self.valid_n_iter)
         self.writer.add_scalar('valid_loss', valid_loss, global_step=self.valid_n_iter)
         self.valid_n_iter += 1
-
-    def _load_pre_trained_weights(self, model):
-        try:
-            checkpoints_folder = os.path.join(self.config['resume_from'], 'checkpoints')
-            state_dict = torch.load(os.path.join(checkpoints_folder, 'model.pth'))
-            model.load_state_dict(state_dict)
-            print("Loaded pre-trained model with success.")
-        except FileNotFoundError:
-            print("Pre-trained weights not found. Training from scratch.")
-
-        return model
 
     def _test(self, model, valid_loader):
         model.eval()
@@ -189,6 +152,43 @@ class iMolCLR:
         model.train()
         return valid_loss_global, valid_loss_sub
 
+    def _get_device(self):
+        # device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        if torch.cuda.is_available() and self.config['gpu'] != 'cpu':
+            device = self.config['gpu']
+            torch.cuda.set_device(device)
+        else:
+            device = 'cpu'
+        print("Running on:", device)
+
+        return device
+
+    def _save_config_file(self, model_checkpoints_folder: str):
+        if not os.path.exists(model_checkpoints_folder):
+            os.makedirs(model_checkpoints_folder)
+            shutil.copy('./config/config.yaml', os.path.join(model_checkpoints_folder, 'config.yaml'))
+
+    def _save_model(self, model, model_checkpoints_folder, epoch_counter):
+        torch.save(model.state_dict(), os.path.join(model_checkpoints_folder, 'model_{}.pth'.format(str(epoch_counter))))
+
+    def _log_loss(self, scheduler, n_iter, loss_global, loss_sub, loss, current, size):
+        self.writer.add_scalar('loss_global', loss_global, global_step=n_iter)
+        self.writer.add_scalar('loss_sub', loss_sub, global_step=n_iter)
+        self.writer.add_scalar('loss', loss, global_step=n_iter)
+        self.writer.add_scalar('cosine_lr_decay', scheduler.get_last_lr()[0], global_step=n_iter)
+        print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
+
+    def _load_pre_trained_weights(self, model):
+        try:
+            checkpoints_folder = os.path.join(self.config['resume_from'], 'checkpoints')
+            state_dict = torch.load(os.path.join(checkpoints_folder, 'model.pth'))
+            model.load_state_dict(state_dict)
+            print("Loaded pre-trained model with success.")
+        except FileNotFoundError:
+            print("Pre-trained weights not found. Training from scratch.")
+
+        return model
+
 
 def main():
     config = yaml.load(open("./config/config.yaml", "r"), Loader=yaml.FullLoader)
@@ -201,7 +201,7 @@ def main():
 
 if __name__ == "__main__":
     global DATA_DIR
-    if (len(sys.argv) > 1):
+    if len(sys.argv > 1):
         print('Argument List:', str(sys.argv))
         DATA_DIR = str(sys.argv[1])
     else:
