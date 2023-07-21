@@ -58,9 +58,7 @@ class iMolCLR:
             print(f"\nEpoch {epoch+1}\n-------------------------------")
             self._train_loop(train_loader, optimizer, model, scheduler)
             self._test_model(test_loader, model, self.model_checkpoints_folder, epoch)
-            
-            if (epoch + 1) % 5 == 0:
-                self._save_model(model, epoch)
+            self._save_model(model, epoch)
 
             # warmup for the first 10 epochs
             if epoch >= self.config['warmup'] - 1:
