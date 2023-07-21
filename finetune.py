@@ -2,25 +2,18 @@ import os
 import sys
 from datetime import datetime
 
+import pprint
 import numpy as np
 import pandas as pd
-import pprint
 import torch
 import torch.nn.functional as F
 import yaml
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from sklearn.metrics import roc_auc_score
 from torch import nn
-
 from data_aug.dataset_test import MolTestDatasetWrapper
 from models.ginet_finetune import GINet
-
-
-def _save_config_file(log_dir, config):
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
-        with open(os.path.join(log_dir, 'config_finetune.yaml'), 'w') as config_file:
-            yaml.dump(config, config_file)
+from utils.helper_funs import save_config_file, get_device
 
 
 class Normalizer:
@@ -49,7 +42,7 @@ class Normalizer:
 class FineTune:
     def __init__(self, dataset, config):
         self.config = config
-        self.device = self._get_device()
+        self.device = get_device(config['gpu'])
         self.dataset = dataset
 
         current_time = datetime.now().strftime('%b%d_%H-%M-%S')
@@ -78,18 +71,7 @@ class FineTune:
             else:
                 self.criterion = nn.MSELoss()
 
-        # save config file
-        _save_config_file(self.log_dir, self.config)
-
-    def _get_device(self):
-        if torch.cuda.is_available() and self.config['gpu'] != 'cpu':
-            device = self.config['gpu']
-            torch.cuda.set_device(device)
-        else:
-            device = 'cpu'
-        print("Running on:", device)
-
-        return device
+        save_config_file(self.log_dir, self.config)
 
     def _step(self, model, data) -> float:
         pred = model(data)
