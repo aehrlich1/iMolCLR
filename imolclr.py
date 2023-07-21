@@ -55,14 +55,11 @@ class iMolCLR:
         torch.cuda.empty_cache()
 
         for epoch in range(self.epochs):
-            print(f"Epoch {epoch+1}\n-------------------------------")
+            print(f"\nEpoch {epoch+1}\n-------------------------------")
             self._train_loop(train_loader, optimizer, model, scheduler)
+            self._test_model(test_loader, model, self.model_checkpoints_folder, epoch)
             if (epoch + 1) % 5 == 0:
                 self._save_model(model, epoch)
-
-            # validate the model if requested
-            if epoch % self.config['eval_every_n_epochs'] == 0:
-                self._test_model(test_loader, model, self.model_checkpoints_folder, epoch)
 
             # warmup for the first 10 epochs
             if epoch >= self.config['warmup'] - 1:
@@ -83,8 +80,7 @@ class iMolCLR:
             # normalize projection feature vectors
             z1_global = F.normalize(z1_global, dim=1)
             z2_global = F.normalize(z2_global, dim=1)
-            loss_global = self.weighted_nt_xent_criterion(
-                z1_global, z2_global, mols)
+            loss_global = self.weighted_nt_xent_criterion(z1_global, z2_global, mols)
 
             # normalize projection feature vectors
             z1_sub = F.normalize(z1_sub, dim=1)
@@ -97,10 +93,11 @@ class iMolCLR:
             optimizer.step()
             optimizer.zero_grad()
             self.n_iter += 1
+            print(f"Batch: [{batch}/{79}]")
 
             if self.n_iter % self.config['log_every_n_steps'] == 0:
                 loss, current = loss.item(), (batch + 1) * len(g1)
-                self._log_loss(scheduler, self.n_iter, loss_global, loss_sub, loss, current, size)
+                self._log_loss(scheduler, loss_global, loss_sub, loss, current, size)
 
     def _test_model(self, train_loader, model, model_checkpoints_folder, epoch):
         valid_loss_global, valid_loss_sub = self._test(model, train_loader)
@@ -168,11 +165,11 @@ class iMolCLR:
     def _save_model(self, model, epoch):
         torch.save(model.state_dict(), os.path.join(self.model_checkpoints_folder, f'Model_{epoch}.Pth'))
 
-    def _log_loss(self, scheduler, n_iter, loss_global, loss_sub, loss, current, size):
-        self.writer.add_scalar('loss_global', loss_global, global_step=n_iter)
-        self.writer.add_scalar('loss_sub', loss_sub, global_step=n_iter)
-        self.writer.add_scalar('loss', loss, global_step=n_iter)
-        self.writer.add_scalar('cosine_lr_decay', scheduler.get_last_lr()[0], global_step=n_iter)
+    def _log_loss(self, scheduler, loss_global, loss_sub, loss, current, size):
+        self.writer.add_scalar('loss_global', loss_global, global_step=self.n_iter)
+        self.writer.add_scalar('loss_sub', loss_sub, global_step=self.n_iter)
+        self.writer.add_scalar('loss', loss, global_step=self.n_iter)
+        self.writer.add_scalar('cosine_lr_decay', scheduler.get_last_lr()[0], global_step=self.n_iter)
         print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
 
     def _load_pre_trained_weights(self, model):

@@ -1,9 +1,8 @@
 gpu: cuda:0
-batch_size: 512                           # batch size
+batch_size: 128                           # batch size
 epochs: 50                                # total number of epochs
 warmup: 10                                # warm-up epochs
 
-eval_every_n_epochs: 1                    # validation frequency
 resume_from: None                         # resume training
 log_every_n_steps: 200                    # print training log frequency
 
@@ -21,7 +20,7 @@ model:
 dataset:
   num_workers: 4                          # dataloader number of workers
   valid_size: 0.05                        # ratio of validation data
-  data_file: pubchem-500k.txt        # file of pre-training data
+  data_file: pubchem-10k.txt        # file of pre-training data
 
 loss:
   temperature: 0.1                        # temperature of (weighted) NT-Xent loss
