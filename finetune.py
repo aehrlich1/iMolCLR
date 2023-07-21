@@ -66,7 +66,6 @@ class FineTune:
             self.criterion = nn.CrossEntropyLoss()
         elif config['dataset']['task'] == 'regression':
             if self.config["task_name"] in ['qm7', 'qm8']:
-                # self.criterion = nn.L1Loss()
                 self.criterion = nn.SmoothL1Loss()
             else:
                 self.criterion = nn.MSELoss()
@@ -103,8 +102,7 @@ class FineTune:
         if n_batches < self.config['log_every_n_steps']:
             self.config['log_every_n_steps'] = n_batches
 
-        model = GINet(self.config['dataset']['task'],
-                      **self.model_config).to(self.device)
+        model = GINet(self.config['dataset']['task'], **self.model_config).to(self.device)
         model = self._load_pre_trained_weights(model)
 
         layer_list = []
@@ -113,14 +111,11 @@ class FineTune:
                 print(name)
                 layer_list.append(name)
 
-        params = list(map(lambda x: x[1], list(
-            filter(lambda kv: kv[0] in layer_list, model.named_parameters()))))
-        base_params = list(map(lambda x: x[1], list(
-            filter(lambda kv: kv[0] not in layer_list, model.named_parameters()))))
+        params = list(map(lambda x: x[1], list(filter(lambda kv: kv[0] in layer_list, model.named_parameters()))))
+        base_params = list(map(lambda x: x[1], list(filter(lambda kv: kv[0] not in layer_list, model.named_parameters()))))
 
         if self.config['optim']['type'] == 'SGD':
-            init_lr = self.config['optim']['base_lr'] * \
-                self.config['batch_size'] / 256
+            init_lr = self.config['optim']['base_lr'] * self.config['batch_size'] / 256
             optimizer = torch.optim.SGD(
                 [{'params': params, 'lr': init_lr},
                     {'params': base_params, 'lr': init_lr *
@@ -164,26 +159,21 @@ class FineTune:
             # validate the model if requested
             if epoch_counter % self.config['eval_every_n_epochs'] == 0:
                 if self.config['dataset']['task'] == 'classification':
-                    valid_loss, valid_roc_auc = self._validate(
-                        model, valid_loader)
+                    valid_loss, valid_roc_auc = self._validate(model, valid_loader)
                     if valid_roc_auc > best_valid_roc_auc:
                         best_valid_roc_auc = valid_roc_auc
                         # save the model weights
-                        torch.save(model.state_dict(), os.path.join(
-                            self.log_dir, 'model.pth'))
+                        torch.save(model.state_dict(), os.path.join(self.log_dir, 'model.pth'))
                 elif self.config['dataset']['task'] == 'regression':
-                    valid_loss, valid_rmse, valid_mae = self._validate(
-                        model, valid_loader)
+                    valid_loss, valid_rmse, valid_mae = self._validate(model, valid_loader)
                     if self.config["task_name"] in ['qm7', 'qm8'] and valid_mae < best_valid_mae:
                         best_valid_mae = valid_mae
                         # save the model weights
-                        torch.save(model.state_dict(), os.path.join(
-                            self.log_dir, 'model.pth'))
+                        torch.save(model.state_dict(), os.path.join(self.log_dir, 'model.pth'))
                     elif valid_rmse < best_valid_rmse:
                         best_valid_rmse = valid_rmse
                         # save the model weights
-                        torch.save(model.state_dict(), os.path.join(
-                            self.log_dir, 'model.pth'))
+                        torch.save(model.state_dict(), os.path.join(self.log_dir, 'model.pth'))
 
                 valid_n_iter += 1
 
@@ -408,7 +398,7 @@ def get_config(data_dir: str):
 
 
 if __name__ == '__main__':
-    if (len(sys.argv) > 1):
+    if len(sys.argv > 1):
         print('Argument List:', str(sys.argv))
         DATA_DIR = str(sys.argv[1])
     else:
@@ -434,8 +424,7 @@ if __name__ == '__main__':
 
         df = pd.DataFrame(save_list)
         fn = '{}_{}_ROC.csv'.format(config["task_name"], current_time)
-        df.to_csv(os.path.join(save_dir, fn), index=False,
-                  header=['label', 'ROC-AUC'])
+        df.to_csv(os.path.join(save_dir, fn), index=False, header=['label', 'ROC-AUC'])
 
     elif config['dataset']['task'] == 'regression':
         save_rmse_list, save_mae_list = [], []
@@ -451,10 +440,8 @@ if __name__ == '__main__':
 
         df = pd.DataFrame(save_rmse_list)
         fn = '{}_{}_RMSE.csv'.format(config["task_name"], current_time)
-        df.to_csv(os.path.join(save_dir, fn),
-                  index=False, header=['label', 'RMSE'])
+        df.to_csv(os.path.join(save_dir, fn), index=False, header=['label', 'RMSE'])
 
         df = pd.DataFrame(save_mae_list)
         fn = '{}_{}_MAE.csv'.format(config["task_name"], current_time)
-        df.to_csv(os.path.join(save_dir, fn),
-                  index=False, header=['label', 'MAE'])
+        df.to_csv(os.path.join(save_dir, fn), index=False, header=['label', 'MAE'])
