@@ -204,5 +204,5 @@ if __name__ == "__main__":
         print('Argument List:', str(sys.argv))
         DATA_DIR = str(sys.argv[1])
     else:
-        DATA_DIR = './data/'
+        DATA_DIR = './data/local/'
     main(DATA_DIR)
