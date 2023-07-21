@@ -102,7 +102,8 @@ class iMolCLR:
     def _test_model(self, train_loader, model, model_checkpoints_folder, epoch):
         valid_loss_global, valid_loss_sub = self._test(model, train_loader)
         valid_loss = valid_loss_global + 0.5 * valid_loss_sub
-        print(epoch, valid_loss_global, valid_loss_sub, valid_loss, '(validation)')
+        print("Test Loss: \n")
+        print(f" Loss: {valid_loss}\n")
         if valid_loss < self.best_valid_loss:
             self.best_valid_loss = valid_loss
             torch.save(model.state_dict(), os.path.join(model_checkpoints_folder, 'model.pth'))
