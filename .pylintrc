@@ -1,7 +1,10 @@
 [MESSAGES CONTROL]
-
 disable=
   missing-class-docstring,
   missing-function-docstring,
   c-extension-no-member,
-  too-few-public-methods
+  too-few-public-methods,
+  unspecified-encoding
+
+[FORMAT]
+max-line-length=130

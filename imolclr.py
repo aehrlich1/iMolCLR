@@ -58,7 +58,7 @@ class iMolCLR:
             print(f"Epoch {epoch+1}\n-------------------------------")
             self._train_loop(train_loader, optimizer, model, scheduler)
             if (epoch + 1) % 5 == 0:
-                self._save_model(model, self.model_checkpoints_folder, epoch)
+                self._save_model(model, epoch)
 
             # validate the model if requested
             if epoch % self.config['eval_every_n_epochs'] == 0:
@@ -151,7 +151,6 @@ class iMolCLR:
         return valid_loss_global, valid_loss_sub
 
     def _get_device(self):
-        # device = 'cuda' if torch.cuda.is_available() else 'cpu'
         if torch.cuda.is_available() and self.config['gpu'] != 'cpu':
             device = self.config['gpu']
             torch.cuda.set_device(device)
@@ -166,8 +165,8 @@ class iMolCLR:
             os.makedirs(model_checkpoints_folder)
             shutil.copy('./config/config.yaml', os.path.join(model_checkpoints_folder, 'config.yaml'))
 
-    def _save_model(self, model, model_checkpoints_folder, epoch_counter):
-        torch.save(model.state_dict(), os.path.join(model_checkpoints_folder, 'model_{}.pth'.format(str(epoch_counter))))
+    def _save_model(self, model, epoch):
+        torch.save(model.state_dict(), os.path.join(self.model_checkpoints_folder, f'Model_{epoch}.Pth'))
 
     def _log_loss(self, scheduler, n_iter, loss_global, loss_sub, loss, current, size):
         self.writer.add_scalar('loss_global', loss_global, global_step=n_iter)
@@ -189,7 +188,8 @@ class iMolCLR:
 
 
 def main():
-    config = yaml.load(open("./config/config.yaml", "r"), Loader=yaml.FullLoader)
+    with open("./config/config.yaml", "r") as config_file:
+        config = yaml.load(config_file, Loader=yaml.FullLoader)
     print("\nConfig \n-------------------------------\n")
     pprint.pprint(config)
     print("\n")
