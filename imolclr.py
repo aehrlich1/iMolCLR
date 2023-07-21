@@ -57,7 +57,7 @@ class iMolCLR:
         for epoch in range(self.epochs):
             print(f"\nEpoch {epoch+1}\n-------------------------------")
             self._train_loop(train_loader, optimizer, model, scheduler)
-            self._test_model(test_loader, model, self.model_checkpoints_folder, epoch)
+            self._test_model(test_loader, model, self.model_checkpoints_folder)
             self._save_model(model, epoch)
 
             # warmup for the first 10 epochs
@@ -99,7 +99,7 @@ class iMolCLR:
                 loss, current = loss.item(), (batch + 1) * len(g1)
                 self._log_loss(scheduler, loss_global, loss_sub, loss, current, size)
 
-    def _test_model(self, train_loader, model, model_checkpoints_folder, epoch):
+    def _test_model(self, train_loader, model, model_checkpoints_folder):
         valid_loss_global, valid_loss_sub = self._test(model, train_loader)
         valid_loss = valid_loss_global + 0.5 * valid_loss_sub
         print("Test Loss: \n")
