@@ -187,23 +187,22 @@ class iMolCLR:
         return model
 
 
-def main():
+def main(data_dir: str):
     with open("./config/config.yaml", "r") as config_file:
         config = yaml.load(config_file, Loader=yaml.FullLoader)
     print("\nConfig \n-------------------------------\n")
     pprint.pprint(config)
     print("\n")
-    dataset = MoleculeDatasetWrapper(config['batch_size'], **config['dataset'], data_dir=DATA_DIR)
+    dataset = MoleculeDatasetWrapper(config['batch_size'], **config['dataset'], data_dir=data_dir)
 
     molclr = iMolCLR(dataset, config)
     molclr.start()
 
 
 if __name__ == "__main__":
-    global DATA_DIR
     if len(sys.argv) > 1:
         print('Argument List:', str(sys.argv))
         DATA_DIR = str(sys.argv[1])
     else:
         DATA_DIR = './data/'
-    main()
+    main(DATA_DIR)
