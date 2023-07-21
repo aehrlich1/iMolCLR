@@ -58,6 +58,7 @@ class iMolCLR:
             print(f"\nEpoch {epoch+1}\n-------------------------------")
             self._train_loop(train_loader, optimizer, model, scheduler)
             self._test_model(test_loader, model, self.model_checkpoints_folder, epoch)
+            
             if (epoch + 1) % 5 == 0:
                 self._save_model(model, epoch)
 
@@ -67,6 +68,7 @@ class iMolCLR:
 
     def _train_loop(self, train_loader, optimizer, model, scheduler):
         size: int = len(train_loader.dataset)
+        n_batches: int = int(size/self.config["batch_size"]) - 1
 
         model.train()
         for batch, (g1, g2, mols, _) in enumerate(train_loader):
@@ -93,9 +95,9 @@ class iMolCLR:
             optimizer.step()
             optimizer.zero_grad()
             self.n_iter += 1
-            print(f"Batch: [{batch}/{79}]")
 
-            if self.n_iter % self.config['log_every_n_steps'] == 0:
+            if batch % 5 == 0:
+                print(f"Batch: [{batch}/{n_batches}]")
                 loss, current = loss.item(), (batch + 1) * len(g1)
                 self._log_loss(scheduler, loss_global, loss_sub, loss, current, size)
 
@@ -171,7 +173,7 @@ class iMolCLR:
         self.writer.add_scalar('loss_sub', loss_sub, global_step=self.n_iter)
         self.writer.add_scalar('loss', loss, global_step=self.n_iter)
         self.writer.add_scalar('cosine_lr_decay', scheduler.get_last_lr()[0], global_step=self.n_iter)
-        print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
+        print(f" loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
 
     def _load_pre_trained_weights(self, model):
         try:
