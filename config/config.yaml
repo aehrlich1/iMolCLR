@@ -1,5 +1,5 @@
 gpu: cuda:0
-batch_size: 16                            # batch size
+batch_size: 512                           # batch size
 epochs: 50                                # total number of epochs
 warmup: 10                                # warm-up epochs
 
