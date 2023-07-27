@@ -300,15 +300,14 @@ class FineTune:
             return test_loss, roc_auc
 
 
-def run(config) -> tuple[float, float]:
+def run_finetune(config) -> tuple[float, float]:
     dataset = MolTestDatasetWrapper(config['batch_size'], **config['dataset'])
     fine_tune = FineTune(dataset, config)
     return fine_tune.train()
 
 
-def get_config(data_dir: str):
-    config = yaml.load(open("./config/config_finetune.yaml",
-                       "r"), Loader=yaml.FullLoader)
+def get_finetune_config(data_dir: str):
+    config = yaml.load(open("./config/config_finetune.yaml", "r"), Loader=yaml.FullLoader)
 
     if config['task_name'] == 'BBBP':
         config['dataset']['task'] = 'classification'
@@ -397,18 +396,11 @@ def get_config(data_dir: str):
     return config, target_list
 
 
-if __name__ == '__main__':
-    if len(sys.argv > 1):
-        print('Argument List:', str(sys.argv))
-        DATA_DIR = str(sys.argv[1])
-    else:
-        DATA_DIR = './data/'
-
-    config, target_list = get_config(DATA_DIR)
+def main(data_dir: str):
+    config, target_list = get_finetune_config(data_dir)
 
     os.makedirs('./experiments', exist_ok=True)
-    dir_name = config['fine_tune_from'].split('/')[0] + '-' + \
-        config['fine_tune_from'].split('/')[-1] + '-' + config['task_name']
+    dir_name = config['fine_tune_from'].split('/')[0] + '-' + config['fine_tune_from'].split('/')[-1] + '-' + config['task_name']
     save_dir = os.path.join('./experiments', dir_name)
 
     current_time = datetime.now().strftime('%b%d_%H-%M-%S')
@@ -418,12 +410,12 @@ if __name__ == '__main__':
         for target in target_list:
             config['dataset']['target'] = target
             roc_list = [target]
-            test_loss, roc_auc = run(config)
+            test_loss, roc_auc = run_finetune(config)
             roc_list.append(roc_auc)
             save_list.append(roc_list)
 
         df = pd.DataFrame(save_list)
-        fn = '{}_{}_ROC.csv'.format(config["task_name"], current_time)
+        fn = f'{config["task_name"]}_{current_time}_ROC.csv'
         df.to_csv(os.path.join(save_dir, fn), index=False, header=['label', 'ROC-AUC'])
 
     elif config['dataset']['task'] == 'regression':
@@ -431,7 +423,7 @@ if __name__ == '__main__':
         for target in target_list:
             config['dataset']['target'] = target
             rmse_list, mae_list = [target], [target]
-            test_loss, rmse, mae = run(config)
+            test_loss, rmse, mae = run_finetune(config)
             rmse_list.append(rmse)
             mae_list.append(mae)
 
@@ -439,9 +431,19 @@ if __name__ == '__main__':
             save_mae_list.append(mae_list)
 
         df = pd.DataFrame(save_rmse_list)
-        fn = '{}_{}_RMSE.csv'.format(config["task_name"], current_time)
+        fn = f'{config["task_name"]}_{current_time}_RMSE.csv'
         df.to_csv(os.path.join(save_dir, fn), index=False, header=['label', 'RMSE'])
 
         df = pd.DataFrame(save_mae_list)
-        fn = '{}_{}_MAE.csv'.format(config["task_name"], current_time)
+        fn = f'{config["task_name"]}_{current_time}_MAE.csv'
         df.to_csv(os.path.join(save_dir, fn), index=False, header=['label', 'MAE'])
+
+
+if __name__ == '__main__':
+    if len(sys.argv > 1):
+        print('Argument List:', str(sys.argv))
+        DATA_DIR = str(sys.argv[1])
+    else:
+        DATA_DIR = './data/'
+
+    main(DATA_DIR)

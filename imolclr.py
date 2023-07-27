@@ -15,6 +15,7 @@ from data_aug.dataset import MoleculeDatasetWrapper
 from models.ginet import GINet
 from utils.nt_xent import NTXentLoss
 from utils.weighted_nt_xent import WeightedNTXentLoss
+from utils.helper_funs import get_device
 
 
 class iMolCLR:
@@ -23,7 +24,7 @@ class iMolCLR:
         log_dir = os.path.join('./runs', dir_name)
 
         self.config = config
-        self.device = self._get_device()
+        self.device = get_device(config)
         self.writer = SummaryWriter(log_dir=log_dir)
 
         self.dataset: MoleculeDatasetWrapper = dataset
@@ -147,16 +148,6 @@ class iMolCLR:
 
         model.train()
         return valid_loss_global, valid_loss_sub
-
-    def _get_device(self):
-        if torch.cuda.is_available() and self.config['gpu'] != 'cpu':
-            device = self.config['gpu']
-            torch.cuda.set_device(device)
-        else:
-            device = 'cpu'
-        print("Running on:", device)
-
-        return device
 
     def _save_config_file(self, model_checkpoints_folder: str):
         if not os.path.exists(model_checkpoints_folder):
