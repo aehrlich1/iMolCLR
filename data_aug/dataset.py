@@ -17,6 +17,12 @@ from torch_geometric.data import Data, Batch
 from sklearn.utils import shuffle
 
 ATOM_MASK_CONSTANT = 118
+CHIRALITY_LIST: list = [
+    Chem.rdchem.ChiralType.CHI_UNSPECIFIED,
+    Chem.rdchem.ChiralType.CHI_TETRAHEDRAL_CW,
+    Chem.rdchem.ChiralType.CHI_TETRAHEDRAL_CCW,
+    Chem.rdchem.ChiralType.CHI_OTHER
+]
 BOND_LIST: list = [
     BondType.SINGLE,
     BondType.DOUBLE,
@@ -127,7 +133,7 @@ def get_node_feature_matrix(mol: Mol) -> torch.Tensor:
 
     for atom in mol.GetAtoms():
         atom_types.append(atom.GetAtomicNum())
-        chirality_idx.append(int(atom.GetChiralTag()))
+        chirality_idx.append(CHIRALITY_LIST.index(atom.GetChiralTag()))
 
     atoms = torch.tensor(atom_types, dtype=torch.long).view(-1, 1)
     bonds = torch.tensor(chirality_idx, dtype=torch.long).view(-1, 1)
@@ -322,8 +328,8 @@ class MoleculeDatasetWrapper:
 
         # gis = Batch().from_data_list(gis)
         # gjs = Batch().from_data_list(gjs)
-        gis = Batch.from_data_list(gis)
-        gjs = Batch.from_data_list(gjs)
+        gis: Batch = Batch.from_data_list(gis)
+        gjs: Batch = Batch.from_data_list(gjs)
 
         gis.motif_batch = torch.zeros(gis.x.size(0), dtype=torch.long)
         gjs.motif_batch = torch.zeros(gjs.x.size(0), dtype=torch.long)

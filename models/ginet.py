@@ -14,7 +14,7 @@ NUM_BOND_DIRECTION = 3
 
 class GINEConv(MessagePassing):
     def __init__(self, emb_dim, aggr="add"):
-        super(GINEConv, self).__init__()
+        super().__init__()
         self.mlp = nn.Sequential(
             nn.Linear(emb_dim, 2*emb_dim),
             nn.ReLU(),
@@ -50,7 +50,7 @@ class GINEConv(MessagePassing):
 
 class GINet(nn.Module):
     def __init__(self, num_layer=5, emb_dim=300, feat_dim=256, dropout=0, pool='mean'):
-        super(GINet, self).__init__()
+        super().__init__()
         self.num_layer = num_layer
         self.emb_dim = emb_dim
         self.feat_dim = feat_dim
@@ -106,8 +106,3 @@ class GINet(nn.Module):
         out_sub = self.out_lin(h_sub)
 
         return h_global, out_global, out_sub
-
-
-if __name__ == "__main__":
-    model = GINConv()
-    print(model)
