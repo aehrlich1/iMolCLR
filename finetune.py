@@ -1,6 +1,5 @@
 import os
 import sys
-from datetime import datetime
 
 import pprint
 import numpy as np
@@ -13,7 +12,7 @@ from sklearn.metrics import roc_auc_score
 from torch import nn
 from data_aug.dataset_test import MolTestDatasetWrapper
 from models.ginet_finetune import GINet
-from utils.helper_funs import save_config_file, get_device
+from utils.helper_funs import save_config_file, get_device, get_current_time
 
 
 class Normalizer:
@@ -44,17 +43,18 @@ class FineTune:
         self.config = config
         self.device = get_device(config['gpu'])
         self.dataset = dataset
+        self.normalizer = None
 
-        current_time = datetime.now().strftime('%b%d_%H-%M-%S')
-        dir_name = config['fine_tune_from'].split('/')[0] + '-' + \
-            config['fine_tune_from'].split('/')[-1] + '-' + config['task_name']
+        current_time = get_current_time()
+        dir_name = config['fine_tune_from'].split(
+            '/')[0] + '-' + config['fine_tune_from'].split('/')[-1] + '-' + config['task_name']
         subdir_name = current_time + '-' + config['dataset']['target']
         self.log_dir = os.path.join('./experiments', dir_name, subdir_name)
 
         model_yaml_dir = os.path.join(config['fine_tune_from'], 'checkpoints')
-        for fn in os.listdir(model_yaml_dir):
-            if fn.endswith(".yaml"):
-                model_yaml_fn = fn
+        for file_name in os.listdir(model_yaml_dir):
+            if file_name.endswith(".yaml"):
+                model_yaml_fn = file_name
                 break
         model_yaml = os.path.join(model_yaml_dir, model_yaml_fn)
         model_config = yaml.load(open(model_yaml, "r"), Loader=yaml.FullLoader)
@@ -89,7 +89,6 @@ class FineTune:
     def train(self) -> tuple[float, float]:
         train_loader, valid_loader, test_loader = self.dataset.get_data_loaders()
 
-        self.normalizer = None
         if self.config["task_name"] in ['qm7']:
             labels = []
             for d in train_loader:
@@ -286,13 +285,12 @@ class FineTune:
         if self.config['dataset']['task'] == 'regression':
             predictions = np.array(predictions)
             labels = np.array(labels)
-            rmse: float = mean_squared_error(
-                labels, predictions, squared=False)
+            rmse: float = mean_squared_error(labels, predictions, squared=False)
             mae: float = mean_absolute_error(labels, predictions)
             print('Test loss:', test_loss, 'RMSE:', rmse, 'MAE:', mae)
             return test_loss, rmse, mae
 
-        elif self.config['dataset']['task'] == 'classification':
+        if self.config['dataset']['task'] == 'classification':
             predictions = np.array(predictions)
             labels = np.array(labels)
             roc_auc: float = roc_auc_score(labels, predictions[:, 1])
@@ -398,12 +396,10 @@ def get_finetune_config(data_dir: str):
 
 def main(data_dir: str):
     config, target_list = get_finetune_config(data_dir)
-
     os.makedirs('./experiments', exist_ok=True)
     dir_name = config['fine_tune_from'].split('/')[0] + '-' + config['fine_tune_from'].split('/')[-1] + '-' + config['task_name']
     save_dir = os.path.join('./experiments', dir_name)
-
-    current_time = datetime.now().strftime('%b%d_%H-%M-%S')
+    current_time = get_current_time()
 
     if config['dataset']['task'] == 'classification':
         save_list = []
@@ -414,9 +410,9 @@ def main(data_dir: str):
             roc_list.append(roc_auc)
             save_list.append(roc_list)
 
-        df = pd.DataFrame(save_list)
-        fn = f'{config["task_name"]}_{current_time}_ROC.csv'
-        df.to_csv(os.path.join(save_dir, fn), index=False, header=['label', 'ROC-AUC'])
+        data_frame = pd.DataFrame(save_list)
+        file_name = f'{config["task_name"]}_{current_time}_ROC.csv'
+        data_frame.to_csv(os.path.join(save_dir, file_name), index=False, header=['label', 'ROC-AUC'])
 
     elif config['dataset']['task'] == 'regression':
         save_rmse_list, save_mae_list = [], []
@@ -430,13 +426,13 @@ def main(data_dir: str):
             save_rmse_list.append(rmse_list)
             save_mae_list.append(mae_list)
 
-        df = pd.DataFrame(save_rmse_list)
-        fn = f'{config["task_name"]}_{current_time}_RMSE.csv'
-        df.to_csv(os.path.join(save_dir, fn), index=False, header=['label', 'RMSE'])
+        data_frame = pd.DataFrame(save_rmse_list)
+        file_name = f'{config["task_name"]}_{current_time}_RMSE.csv'
+        data_frame.to_csv(os.path.join(save_dir, file_name), index=False, header=['label', 'RMSE'])
 
-        df = pd.DataFrame(save_mae_list)
-        fn = f'{config["task_name"]}_{current_time}_MAE.csv'
-        df.to_csv(os.path.join(save_dir, fn), index=False, header=['label', 'MAE'])
+        data_frame = pd.DataFrame(save_mae_list)
+        file_name = f'{config["task_name"]}_{current_time}_MAE.csv'
+        data_frame.to_csv(os.path.join(save_dir, file_name), index=False, header=['label', 'MAE'])
 
 
 if __name__ == '__main__':

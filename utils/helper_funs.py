@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 import yaml
 import torch
 
@@ -19,3 +20,7 @@ def get_device(device_config):
     print("Running on:", device)
 
     return device
+
+
+def get_current_time():
+    return datetime.now().strftime('%b%d_%H-%M-%S')
