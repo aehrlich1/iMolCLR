@@ -1,6 +1,5 @@
 import os
 import shutil
-from datetime import datetime
 
 import sys
 import pprint
@@ -15,12 +14,12 @@ from data_aug.dataset import MoleculeDatasetWrapper
 from models.ginet import GINet
 from utils.nt_xent import NTXentLoss
 from utils.weighted_nt_xent import WeightedNTXentLoss
-from utils.helper_funs import get_device
+from utils.helper_funs import get_device, print_section, get_current_time
 
 
 class iMolCLR:
     def __init__(self, dataset: MoleculeDatasetWrapper, config):
-        dir_name = datetime.now().strftime('%b%d_%H-%M-%S')
+        dir_name = get_current_time()
         log_dir = os.path.join('./runs', dir_name)
 
         self.config = config
@@ -43,20 +42,20 @@ class iMolCLR:
 
         model = GINet(**self.config["model"]).to(self.device)
         model = self._load_pre_trained_weights(model)
-        print(f"\nModel \n-------------------------------\n{model}\n")
+        print_section("Model", model)
 
         optimizer = torch.optim.Adam(
             model.parameters(), self.config['optim']['init_lr'],
             weight_decay=self.config['optim']['weight_decay']
         )
-        print(f"Optimizer \n-------------------------------\n{optimizer}\n")
+        print_section("Optimizer", optimizer)
 
         scheduler = CosineAnnealingLR(optimizer, T_max=self.epochs - 9, eta_min=0, last_epoch=-1)
 
         torch.cuda.empty_cache()
 
         for epoch in range(self.epochs):
-            print(f"\nEpoch {epoch+1}\n-------------------------------")
+            print_section(f"Epoch {epoch+1}")
             self._train_loop(train_loader, optimizer, model, scheduler)
             self._test_model(test_loader, model, self.model_checkpoints_folder)
             self._save_model(model, epoch)
@@ -179,7 +178,7 @@ class iMolCLR:
 def main(data_dir: str):
     with open("./config/config.yaml", "r") as config_file:
         config = yaml.load(config_file, Loader=yaml.FullLoader)
-    print("\nConfig \n-------------------------------\n")
+    print_section("Config")
     pprint.pprint(config)
     print("\n")
     dataset = MoleculeDatasetWrapper(config['batch_size'], **config['dataset'], data_dir=data_dir)

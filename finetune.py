@@ -180,12 +180,11 @@ class FineTune:
 
     def _load_pre_trained_weights(self, model):
         try:
-            checkpoints_folder = os.path.join(
-                self.config['fine_tune_from'], 'checkpoints')
-            ckp_path = os.path.join(checkpoints_folder, 'model.pth')
-            state_dict = torch.load(ckp_path, map_location=self.device)
+            checkpoints_folder = os.path.join(self.config['fine_tune_from'], 'checkpoints')
+            checkpoints_path = os.path.join(checkpoints_folder, 'model.pth')
+            state_dict = torch.load(checkpoints_path, map_location=self.device)
             model.load_my_state_dict(state_dict)
-            print(f"Loaded pre-trained model {ckp_path} with success.")
+            print(f"Loaded pre-trained model {checkpoints_path} with success.")
 
         except FileNotFoundError:
             print("Pre-trained weights not found. Training from scratch.")

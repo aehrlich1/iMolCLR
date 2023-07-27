@@ -24,3 +24,9 @@ def get_device(device_config):
 
 def get_current_time():
     return datetime.now().strftime('%b%d_%H-%M-%S')
+
+
+def print_section(section_name, section_data=None):
+    print(f"\n{section_name} \n-------------------------------\n")
+    if section_data is not None:
+        print(f"{section_data}\n")
