@@ -8,3 +8,7 @@ disable=
 
 [FORMAT]
 max-line-length=130
+
+{
+  "extension-pkg-whitelist": "torch"
+}
