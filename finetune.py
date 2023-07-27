@@ -186,7 +186,7 @@ class FineTune:
             ckp_path = os.path.join(checkpoints_folder, 'model.pth')
             state_dict = torch.load(ckp_path, map_location=self.device)
             model.load_my_state_dict(state_dict)
-            print("Loaded pre-trained model {} with success.".format(ckp_path))
+            print(f"Loaded pre-trained model {ckp_path} with success.")
 
         except FileNotFoundError:
             print("Pre-trained weights not found. Training from scratch.")
@@ -247,7 +247,7 @@ class FineTune:
         model_path = os.path.join(self.log_dir, 'model.pth')
         state_dict = torch.load(model_path, map_location=self.device)
         model.load_state_dict(state_dict)
-        print("Loaded {} with success.".format(model_path))
+        print(f"Loaded {model_path} with success.")
 
         # test steps
         predictions = []
@@ -440,7 +440,7 @@ def main(data_dir: str):
 
 
 if __name__ == '__main__':
-    if len(sys.argv > 1):
+    if len(sys.argv) > 1:
         print('Argument List:', str(sys.argv))
         DATA_DIR = str(sys.argv[1])
     else:

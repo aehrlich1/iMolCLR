@@ -5,23 +5,23 @@ from torch_geometric.nn import MessagePassing
 from torch_geometric.nn import global_add_pool, global_mean_pool, global_max_pool
 from torch_geometric.utils import add_self_loops
 
-num_atom_type = 119 # including the extra mask tokens
-num_chirality_tag = 4
+NUM_ATOM_TYPE = 119  # including the extra mask tokens
+NUM_CHIRALITY_TAG = 4
 
-num_bond_type = 5 # including aromatic and self-loop edge
-num_bond_direction = 3 
+NUM_BOND_TYPE = 5  # including aromatic and self-loop edge
+NUM_BOND_DIRECTION = 3
 
 
 class GINEConv(MessagePassing):
     def __init__(self, embed_dim, aggr="add"):
         super(GINEConv, self).__init__()
         self.mlp = nn.Sequential(
-            nn.Linear(embed_dim, 2*embed_dim), 
-            nn.ReLU(), 
+            nn.Linear(embed_dim, 2*embed_dim),
+            nn.ReLU(),
             nn.Linear(2*embed_dim, embed_dim)
         )
-        self.edge_embedding1 = nn.Embedding(num_bond_type, embed_dim)
-        self.edge_embedding2 = nn.Embedding(num_bond_direction, embed_dim)
+        self.edge_embedding1 = nn.Embedding(NUM_BOND_TYPE, embed_dim)
+        self.edge_embedding2 = nn.Embedding(NUM_BOND_DIRECTION, embed_dim)
 
         nn.init.xavier_uniform_(self.edge_embedding1.weight.data)
         nn.init.xavier_uniform_(self.edge_embedding2.weight.data)
@@ -33,11 +33,11 @@ class GINEConv(MessagePassing):
 
         # add features corresponding to self-loop edges.
         self_loop_attr = torch.zeros(x.size(0), 2)
-        self_loop_attr[:,0] = 4 #bond type for self-loop edge
+        self_loop_attr[:, 0] = 4  # bond type for self-loop edge
         self_loop_attr = self_loop_attr.to(edge_attr.device).to(edge_attr.dtype)
         edge_attr = torch.cat((edge_attr, self_loop_attr), dim=0)
 
-        edge_embeddings = self.edge_embedding1(edge_attr[:,0]) + self.edge_embedding2(edge_attr[:,1])
+        edge_embeddings = self.edge_embedding1(edge_attr[:, 0]) + self.edge_embedding2(edge_attr[:, 1])
 
         return self.propagate(edge_index, x=x, edge_attr=edge_embeddings)
 
@@ -56,8 +56,8 @@ class GINet(nn.Module):
         self.embed_dim = embed_dim
         self.dropout = dropout
 
-        self.x_embedding1 = nn.Embedding(num_atom_type, embed_dim)
-        self.x_embedding2 = nn.Embedding(num_chirality_tag, embed_dim)
+        self.x_embedding1 = nn.Embedding(NUM_ATOM_TYPE, embed_dim)
+        self.x_embedding2 = nn.Embedding(NUM_CHIRALITY_TAG, embed_dim)
 
         nn.init.xavier_uniform_(self.x_embedding1.weight.data)
         nn.init.xavier_uniform_(self.x_embedding2.weight.data)
@@ -80,19 +80,19 @@ class GINet(nn.Module):
             self.pool = global_add_pool
         else:
             raise ValueError('Pooling operation not defined!')
-        
+
         # projection head
         self.proj_head = nn.Sequential(
             nn.Linear(embed_dim, embed_dim, bias=False),
             nn.BatchNorm1d(embed_dim),
-            nn.ReLU(inplace=True), # first layer
+            nn.ReLU(inplace=True),  # first layer
             nn.Linear(embed_dim, embed_dim, bias=False),
             nn.BatchNorm1d(embed_dim),
-            nn.ReLU(inplace=True), # second layer
-            nn.Linear(embed_dim, embed_dim, bias=False), 
+            nn.ReLU(inplace=True),  # second layer
+            nn.Linear(embed_dim, embed_dim, bias=False),
             nn.BatchNorm1d(embed_dim)
         )
-    
+
         # fine-tune prediction layers
         if self.task == 'classification':
             self.output_layers = nn.Sequential(
@@ -110,7 +110,7 @@ class GINet(nn.Module):
             raise ValueError('Undefined task type!')
 
     def forward(self, data):
-        h = self.x_embedding1(data.x[:,0]) + self.x_embedding2(data.x[:,1])
+        h = self.x_embedding1(data.x[:, 0]) + self.x_embedding2(data.x[:, 1])
 
         for layer in range(self.num_layer):
             h = self.gnns[layer](h, data.edge_index, data.edge_attr)
@@ -124,7 +124,7 @@ class GINet(nn.Module):
             h = h[data.pool_mask]
         else:
             h = self.pool(h, data.batch)
-        
+
         h = self.proj_head(h)
 
         return self.output_layers(h)
