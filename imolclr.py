@@ -23,7 +23,7 @@ class iMolCLR:
         log_dir = os.path.join('./runs', dir_name)
 
         self.config = config
-        self.device = get_device(config)
+        self.device = get_device(config['gpu'])
         self.writer = SummaryWriter(log_dir=log_dir)
 
         self.dataset: MoleculeDatasetWrapper = dataset
